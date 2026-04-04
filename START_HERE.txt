@@ -1,0 +1,17 @@
+BẮT ĐẦU TỪ ĐÂY
+
+1. Đọc `README.md`
+2. Đọc `00_tong_quan/PROJECT_BRIEF.md`
+3. Đọc `01_kien_truc/KIEN_TRUC_TONG_THE.md`
+4. Đọc toàn bộ `02_pipeline/`
+5. Đọc `03_du_lieu_va_db/schema.sql`
+6. Đọc `04_backend_api/API_SPEC.md`
+7. Đọc `05_ai_agent/`
+8. Triển khai theo `07_tien_do_va_task/IMPLEMENTATION_SEQUENCE.md`
+9. Sau mỗi giai đoạn, cập nhật `07_tien_do_va_task/PROGRESS.md`
+
+Mục tiêu cuối:
+- Có 5 pipeline hoạt động
+- Có PostgreSQL và raw storage
+- Có API
+- Có AI Agent hỏi đáp bằng tiếng Việt

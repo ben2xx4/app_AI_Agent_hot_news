@@ -1,0 +1,26 @@
+{
+  "records": [
+    {
+      "issuing_agency": "Bộ Giáo dục và Đào tạo",
+      "doc_number": "1234/BGDDT-GDTrH",
+      "title": "Hướng dẫn mới về tuyển sinh đầu cấp năm học 2026-2027",
+      "summary": "Hướng dẫn nhấn mạnh việc công khai dữ liệu, giảm giấy tờ và ưu tiên nộp hồ sơ trực tuyến.",
+      "content_clean": "Bộ Giáo dục và Đào tạo ban hành hướng dẫn mới về tuyển sinh đầu cấp. Văn bản yêu cầu các sở giáo dục công khai chỉ tiêu, lịch trình và kết quả tiếp nhận hồ sơ. Đơn vị trường học được khuyến khích mở rộng nộp hồ sơ trực tuyến và đồng bộ dữ liệu dân cư để giảm giấy tờ.",
+      "field": "giao duc",
+      "issued_at": "2026-04-02T16:00:00",
+      "effective_at": "2026-04-10T00:00:00",
+      "canonical_url": "https://chinhphu.example/policy/giao-duc-tuyen-sinh"
+    },
+    {
+      "issuing_agency": "Bộ Y tế",
+      "doc_number": "88/BYT-KCB",
+      "title": "Thông báo tăng cường trực cấp cứu dịp nghỉ lễ",
+      "summary": "Các cơ sở y tế bố trí nhân lực, thuốc và vật tư cấp cứu dự phòng.",
+      "content_clean": "Bộ Y tế đề nghị các bệnh viện tăng cường kíp trực cấp cứu, bố trí đầy đủ vật tư tiêu hao và phối hợp với trung tâm cấp cứu 115 để sẵn sàng xử lý tình huống đột biến trong dịp nghỉ lễ.",
+      "field": "y te",
+      "issued_at": "2026-04-03T08:10:00",
+      "effective_at": "2026-04-03T08:10:00",
+      "canonical_url": "https://chinhphu.example/policy/y-te-cap-cuu"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+# Kiến trúc code backend gợi ý
+
+```text
+app/
+  api/
+    routes/
+      news.py
+      prices.py
+      weather.py
+      policy.py
+      traffic.py
+      chat.py
+  services/
+    news_service.py
+    price_service.py
+    weather_service.py
+    policy_service.py
+    traffic_service.py
+    chat_service.py
+  repositories/
+    news_repo.py
+    price_repo.py
+    weather_repo.py
+    policy_repo.py
+    traffic_repo.py
+  models/
+  schemas/
+  core/
+    config.py
+    db.py
+    logging.py
+```

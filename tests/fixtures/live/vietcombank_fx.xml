@@ -1,0 +1,7 @@
+<!--For reference only. Only one request every 5 minutes!-->
+<ExrateList>
+  <DateTime>4/4/2026 12:06:55 AM</DateTime>
+  <Exrate CurrencyCode="EUR" CurrencyName="EURO" Buy="29,605.67" Transfer="29,904.72" Sell="31,166.42" />
+  <Exrate CurrencyCode="USD" CurrencyName="US DOLLAR" Buy="26,112.00" Transfer="26,142.00" Sell="26,362.00" />
+  <Exrate CurrencyCode="JPY" CurrencyName="YEN" Buy="159.83" Transfer="161.45" Sell="169.98" />
+</ExrateList>

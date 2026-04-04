@@ -1,0 +1,31 @@
+{
+  "records": [
+    {
+      "item_type": "fuel",
+      "item_name": "gia-xang-ron95-iii",
+      "region": "toan_quoc",
+      "buy_price": null,
+      "sell_price": 24420,
+      "unit": "VND/lit",
+      "effective_at": "2026-04-03T08:00:00"
+    },
+    {
+      "item_type": "fuel",
+      "item_name": "gia-xang-e5-ron92",
+      "region": "toan_quoc",
+      "buy_price": null,
+      "sell_price": 23120,
+      "unit": "VND/lit",
+      "effective_at": "2026-04-03T08:00:00"
+    },
+    {
+      "item_type": "fuel",
+      "item_name": "gia-xang-ron95-iii",
+      "region": "toan_quoc",
+      "buy_price": null,
+      "sell_price": 24200,
+      "unit": "VND/lit",
+      "effective_at": "2026-03-27T08:00:00"
+    }
+  ]
+}

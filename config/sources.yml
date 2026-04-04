@@ -1,0 +1,351 @@
+sources:
+  - name: vnexpress_rss_tin_moi
+    pipeline: news
+    source_type: rss
+    url: "https://vnexpress.net/rss/tin-moi-nhat.rss"
+    parser: "rss_basic"
+    category_default: "tin_tuc"
+    active: true
+    fetch_interval_minutes: 10
+    timeout_seconds: 10
+    retry_count: 2
+    demo_fixture: "data/fixtures/news/vnexpress_tin_moi.xml"
+
+  - name: dantri_rss_tin_moi
+    pipeline: news
+    source_type: rss
+    url: "https://dantri.com.vn/rss/home.rss"
+    parser: "rss_basic"
+    category_default: "tin_tuc"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+
+  - name: thanhnien_rss_trang_chu
+    pipeline: news
+    source_type: rss
+    url: "https://thanhnien.vn/rss/home.rss"
+    parser: "rss_basic"
+    category_default: "tin_tuc"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+
+  - name: tuoitre_rss_thoi_su
+    pipeline: news
+    source_type: rss
+    url: "https://tuoitre.vn/rss/tin-moi-nhat.rss"
+    parser: "tuoitre_rss_detail"
+    category_default: "thoi_su"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    demo_fixture: "data/fixtures/news/tuoitre_thoi_su.xml"
+    max_items: 12
+    detail_timeout_seconds: 12
+    detail_retry_count: 1
+
+  - name: sjc_gold_prices
+    pipeline: price
+    source_type: json
+    url: ""
+    category_default: "gia_vang"
+    active: true
+    fetch_interval_minutes: 15
+    demo_only_source: true
+    demo_fixture: "data/fixtures/price/gold_prices.json"
+
+  - name: sjc_gold_prices_live
+    pipeline: price
+    source_type: json
+    url: "https://sjc.com.vn/GoldPrice/Services/PriceService.ashx"
+    parser: "sjc_gold_json"
+    category_default: "gia_vang"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 15
+    retry_count: 2
+    request_method: "POST"
+    form_data:
+      method: "GetCurrentGoldPricesByBranch"
+      BranchId: "1"
+    unit: "VND/lượng"
+    type_map:
+      "Vàng SJC 1L, 10L, 1KG": "gia-vang-sjc"
+      "Vàng nhẫn SJC 99,99% 1 chỉ, 2 chỉ, 5 chỉ": "gia-vang-nhan-9999"
+
+  - name: petrolimex_fuel_prices
+    pipeline: price
+    source_type: json
+    url: ""
+    category_default: "gia_xang"
+    active: true
+    fetch_interval_minutes: 20
+    demo_only_source: true
+    demo_fixture: "data/fixtures/price/fuel_prices.json"
+
+  - name: petrolimex_fuel_prices_live
+    pipeline: price
+    source_type: json
+    url: "https://portals.petrolimex.com.vn/~apis/portals/cms.item/search"
+    parser: "petrolimex_fuel_json"
+    category_default: "gia_xang"
+    active: true
+    fetch_interval_minutes: 20
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      x-request: "eyJGaWx0ZXJCeSI6eyJBbmQiOlt7IlN5c3RlbUlEIjp7IkVxdWFscyI6IjY3ODNkYzEyNzFmZjQ0OWU5NWI3NGE5NTIwOTY0MTY5In19LHsiUmVwb3NpdG9yeUlEIjp7IkVxdWFscyI6ImE5NTQ1MWUyM2I0NzRmZTU4ODZiZmI3Y2Y4NDNmNTNjIn19LHsiUmVwb3NpdG9yeUVudGl0eUlEIjp7IkVxdWFscyI6IjM4MDEzNzhmZTFlMDQ1YjFhZmExMGRlN2M1Nzc2MTI0In19LHsiU3RhdHVzIjp7IkVxdWFscyI6IlB1Ymxpc2hlZCJ9fV19LCJTb3J0QnkiOnsiTGFzdE1vZGlmaWVkIjoiRGVzY2VuZGluZyJ9LCJQYWdpbmF0aW9uIjp7IlRvdGFsUmVjb3JkcyI6LTEsIlRvdGFsUGFnZXMiOjAsIlBhZ2VTaXplIjowLCJQYWdlTnVtYmVyIjowfX0"
+      language: "vi-VN"
+    item_type: "fuel"
+    region: "Vùng 1"
+    unit: "VND/lít"
+    price_field: "Zone1Price"
+    product_map:
+      "Xăng RON 95-III": "gia-xang-ron95-iii"
+      "Xăng E5 RON 92-II": "gia-xang-e5-ron92"
+      "Xăng RON 95-V": "gia-xang-ron95-v"
+      "Xăng E10 RON 95-III": "gia-xang-e10-ron95-iii"
+      "DO 0,001S-V": "gia-dau-do-0001s-v"
+      "DO 0,05S-II": "gia-dau-do-005s-ii"
+      "Dầu hỏa 2-K": "gia-dau-hoa-2k"
+
+  - name: sbv_fx_rates
+    pipeline: price
+    source_type: json
+    url: ""
+    category_default: "ty_gia"
+    active: true
+    fetch_interval_minutes: 30
+    demo_only_source: true
+    demo_fixture: "data/fixtures/price/fx_rates.json"
+
+  - name: sbv_fx_rates_live
+    pipeline: price
+    source_type: html
+    url: "https://www.sbv.gov.vn/t%E1%BB%B7-gi%C3%A1"
+    parser: "sbv_fx_html"
+    category_default: "ty_gia"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    item_type: "ty_gia"
+    region: "Viet Nam"
+    currencies:
+      - "USD"
+      - "EUR"
+      - "JPY"
+      - "GBP"
+    item_name_map:
+      "USD": "ty-gia-usd-ban-ra"
+      "EUR": "ty-gia-eur-sbv"
+      "JPY": "ty-gia-jpy-sbv"
+      "GBP": "ty-gia-gbp-sbv"
+    central_rate_item_name: "ty-gia-usd-trung-tam-sbv"
+
+  - name: vietcombank_fx_rates_live
+    pipeline: price
+    source_type: xml
+    url: "https://portal.vietcombank.com.vn/Usercontrols/TVPortal.TyGia/pXML.aspx"
+    parser: "vietcombank_fx_xml"
+    category_default: "ty_gia"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      b: "68"
+    item_type: "ty_gia"
+    region: "Vietcombank"
+    unit: "VND"
+    provider_suffix: "vcb"
+    currencies:
+      - "USD"
+      - "EUR"
+      - "JPY"
+      - "GBP"
+
+  - name: nchmf_weather_daily
+    pipeline: weather
+    source_type: json
+    url: ""
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    demo_only_source: true
+    demo_fixture: "data/fixtures/weather/weather_daily.json"
+
+  - name: open_meteo_weather_hanoi_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "21.0285"
+      longitude: "105.8542"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "Hà Nội"
+
+  - name: open_meteo_weather_hcm_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "10.8231"
+      longitude: "106.6297"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "TP.HCM"
+
+  - name: open_meteo_weather_danang_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "16.0544"
+      longitude: "108.2022"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "Đà Nẵng"
+
+  - name: chinhphu_policy_updates
+    pipeline: policy
+    source_type: json
+    url: ""
+    category_default: "chinh_sach"
+    active: true
+    fetch_interval_minutes: 60
+    demo_only_source: true
+    demo_fixture: "data/fixtures/policy/policy_updates.json"
+
+  - name: congbao_policy_updates_live
+    pipeline: policy
+    source_type: html
+    url: "https://congbao.chinhphu.vn/van-ban-dang-cong-bao/chinh-phu-c1.htm"
+    parser: "congbao_listing_html"
+    category_default: "chinh_sach"
+    active: true
+    fetch_interval_minutes: 120
+    timeout_seconds: 15
+    retry_count: 2
+    site_root: "https://congbao.chinhphu.vn"
+    max_items: 10
+    detail_timeout_seconds: 15
+    detail_retry_count: 1
+    field_default: "chính sách"
+
+  - name: congbao_thu_tuong_policy_live
+    pipeline: policy
+    source_type: html
+    url: "https://congbao.chinhphu.vn/van-ban-dang-cong-bao/thu-tuong-chinh-phu-c2.htm"
+    parser: "congbao_listing_html"
+    category_default: "chinh_sach"
+    active: true
+    fetch_interval_minutes: 120
+    timeout_seconds: 15
+    retry_count: 2
+    site_root: "https://congbao.chinhphu.vn"
+    max_items: 10
+    detail_timeout_seconds: 15
+    detail_retry_count: 1
+    field_default: "chính sách"
+
+  - name: congbao_quoc_hoi_policy_live
+    pipeline: policy
+    source_type: html
+    url: "https://congbao.chinhphu.vn/van-ban-dang-cong-bao/quoc-hoi-c31.htm"
+    parser: "congbao_listing_html"
+    category_default: "chinh_sach"
+    active: true
+    fetch_interval_minutes: 180
+    timeout_seconds: 15
+    retry_count: 2
+    site_root: "https://congbao.chinhphu.vn"
+    max_items: 10
+    detail_timeout_seconds: 15
+    detail_retry_count: 1
+    field_default: "chính sách"
+
+  - name: vov_traffic_updates
+    pipeline: traffic
+    source_type: json
+    url: ""
+    category_default: "giao_thong"
+    active: true
+    fetch_interval_minutes: 20
+    demo_only_source: true
+    demo_fixture: "data/fixtures/traffic/traffic_updates.json"
+
+  - name: vov_giaothong_traffic_live
+    pipeline: traffic
+    source_type: html
+    url: "https://vovgiaothong.vn/giao-thong"
+    parser: "vov_listing_html"
+    category_default: "giao_thong"
+    active: true
+    fetch_interval_minutes: 20
+    timeout_seconds: 12
+    retry_count: 2
+    site_root: "https://vovgiaothong.vn"
+    max_items: 12
+    detail_timeout_seconds: 12
+    detail_retry_count: 1
+    default_location: "Việt Nam"
+    location_keywords:
+      Hà Nội:
+        - "Hà Nội"
+        - "ha noi"
+        - "Trần Khắc Chân"
+        - "Đại Cồ Việt"
+        - "Nguyễn Khoái"
+      TP.HCM:
+        - "TP.HCM"
+        - "tp hcm"
+        - "Hồ Chí Minh"
+        - "Sài Gòn"
+      Đà Nẵng:
+        - "Đà Nẵng"
+
+  - name: vnexpress_traffic_live
+    pipeline: traffic
+    source_type: html
+    url: "https://vnexpress.net/thoi-su/giao-thong"
+    parser: "vnexpress_listing_html"
+    category_default: "giao_thong"
+    active: true
+    fetch_interval_minutes: 25
+    timeout_seconds: 12
+    retry_count: 2
+    site_root: "https://vnexpress.net"
+    max_items: 18
+    detail_timeout_seconds: 12
+    detail_retry_count: 1
+    default_location: "Việt Nam"

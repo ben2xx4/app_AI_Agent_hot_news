@@ -1,0 +1,33 @@
+{
+  "success": true,
+  "latestDate": "08:23 04/04/2026",
+  "data": [
+    {
+      "Id": 1,
+      "TypeName": "Vàng SJC 1L, 10L, 1KG",
+      "BranchName": "Hồ Chí Minh",
+      "Buy": "171,500,000",
+      "BuyValue": 171500000.0,
+      "Sell": "174,500,000",
+      "SellValue": 174500000.0
+    },
+    {
+      "Id": 49,
+      "TypeName": "Vàng nhẫn SJC 99,99% 1 chỉ, 2 chỉ, 5 chỉ",
+      "BranchName": "Hồ Chí Minh",
+      "Buy": "171,300,000",
+      "BuyValue": 171300000.0,
+      "Sell": "174,300,000",
+      "SellValue": 174300000.0
+    },
+    {
+      "Id": 81,
+      "TypeName": "Nữ trang 99,99%",
+      "BranchName": "Hồ Chí Minh",
+      "Buy": "169,300,000",
+      "BuyValue": 169300000.0,
+      "Sell": "172,800,000",
+      "SellValue": 172800000.0
+    }
+  ]
+}

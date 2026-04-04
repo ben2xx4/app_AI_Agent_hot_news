@@ -1,0 +1,1 @@
+"""Cac helper cho database."""

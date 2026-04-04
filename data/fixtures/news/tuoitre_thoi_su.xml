@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Tuổi Trẻ - Thời sự</title>
+    <item>
+      <title>Hà Nội đưa tuyến buýt điện mới vào khai thác từ hôm nay</title>
+      <link>https://tuoitre.example/news/ha-noi-buyt-dien-moi</link>
+      <description>Hai tuyến buýt điện kết nối trung tâm và bến xe phía Đông bắt đầu hoạt động.</description>
+      <pubDate>2026-04-03 08:40:00</pubDate>
+    </item>
+    <item>
+      <title>Bộ Giáo dục công bố hướng dẫn mới về tuyển sinh đầu cấp</title>
+      <link>https://tuoitre.example/news/huong-dan-tuyen-sinh</link>
+      <description>Hướng dẫn mới nhằm giảm áp lực hồ sơ và tăng minh bạch dữ liệu.</description>
+      <pubDate>2026-04-03 07:50:00</pubDate>
+    </item>
+    <item>
+      <title>TP.HCM điều chỉnh luồng xe khu vực trung tâm dịp cuối tuần</title>
+      <link>https://tuoitre.example/news/tphcm-dieu-chinh-luong-xe</link>
+      <description>Nhiều tuyến phố được phân luồng để phục vụ sự kiện văn hóa buổi tối.</description>
+      <pubDate>2026-04-03 09:45:00</pubDate>
+    </item>
+  </channel>
+</rss>

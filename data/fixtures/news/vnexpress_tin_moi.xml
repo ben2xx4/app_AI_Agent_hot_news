@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>VnExpress - Tin mới nhất</title>
+    <item>
+      <title>Hà Nội mở thêm tuyến buýt điện nội đô</title>
+      <link>https://vnexpress.example/news/ha-noi-buyt-dien</link>
+      <description>Thành phố đưa vào vận hành thêm 12 xe buýt điện để giảm phát thải.</description>
+      <pubDate>2026-04-03 08:30:00</pubDate>
+    </item>
+    <item>
+      <title>Giá vàng trong nước tăng nhẹ trước kỳ nghỉ lễ</title>
+      <link>https://vnexpress.example/news/gia-vang-tang</link>
+      <description>Giá vàng SJC tăng 150.000 đồng mỗi lượng trong phiên sáng.</description>
+      <pubDate>2026-04-03 09:15:00</pubDate>
+    </item>
+    <item>
+      <title>Cảnh báo mưa dông cục bộ tại Hà Nội vào chiều tối</title>
+      <link>https://vnexpress.example/news/canh-bao-mua-dong-ha-noi</link>
+      <description>Cơ quan khí tượng cảnh báo mưa dông, gió giật ở khu vực nội thành.</description>
+      <pubDate>2026-04-03 10:00:00</pubDate>
+    </item>
+  </channel>
+</rss>

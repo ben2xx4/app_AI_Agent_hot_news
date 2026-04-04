@@ -1,0 +1,8 @@
+{
+  "question": "Giá vàng hôm nay thế nào?",
+  "intent": "price_lookup",
+  "tool_called": "get_latest_price",
+  "answer": "Giá vàng SJC hôm nay là ...",
+  "source": ["SJC"],
+  "updated_at": "2026-04-03T09:15:00+07:00"
+}

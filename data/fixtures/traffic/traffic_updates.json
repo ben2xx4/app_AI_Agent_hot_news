@@ -1,0 +1,22 @@
+{
+  "records": [
+    {
+      "event_type": "phan_luong",
+      "title": "Điều chỉnh luồng giao thông khu vực phố đi bộ Nguyễn Huệ",
+      "location": "TP.HCM",
+      "start_time": "2026-04-03T18:00:00",
+      "end_time": "2026-04-03T23:00:00",
+      "description": "Cấm xe tại một số đoạn đường lân cận để phục vụ sự kiện văn hóa cuối tuần.",
+      "url": "https://vovgiaothong.example/traffic/nguyen-hue"
+    },
+    {
+      "event_type": "cam_duong_tam_thoi",
+      "title": "Tạm cấm đường một chiều quanh hồ Hoàn Kiếm để tổ chức giải chạy",
+      "location": "Hà Nội",
+      "start_time": "2026-04-04T04:00:00",
+      "end_time": "2026-04-04T10:00:00",
+      "description": "Người dân cần lưu ý lộ trình thay thế trong khung giờ sáng.",
+      "url": "https://vovgiaothong.example/traffic/ho-hoan-kiem"
+    }
+  ]
+}

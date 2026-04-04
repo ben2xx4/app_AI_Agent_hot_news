@@ -1,0 +1,58 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: vn_news_ai_postgres
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: app_password
+      POSTGRES_DB: news_ai_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d news_ai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - .env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: sh -c "alembic upgrade head && python3 scripts/seed_demo_data.py --demo-only && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  ui:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.ui
+    env_file:
+      - .env.example
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: streamlit run app/ui/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+
+volumes:
+  postgres_data:

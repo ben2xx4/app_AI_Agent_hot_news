@@ -1,0 +1,31 @@
+{
+  "records": [
+    {
+      "item_type": "gold",
+      "item_name": "gia-vang-sjc",
+      "region": "toan_quoc",
+      "buy_price": 80500000,
+      "sell_price": 82500000,
+      "unit": "VND/luong",
+      "effective_at": "2026-04-03T09:20:00"
+    },
+    {
+      "item_type": "gold",
+      "item_name": "gia-vang-nhan-9999",
+      "region": "toan_quoc",
+      "buy_price": 78000000,
+      "sell_price": 79500000,
+      "unit": "VND/luong",
+      "effective_at": "2026-04-03T09:20:00"
+    },
+    {
+      "item_type": "gold",
+      "item_name": "gia-vang-sjc",
+      "region": "toan_quoc",
+      "buy_price": 80300000,
+      "sell_price": 82300000,
+      "unit": "VND/luong",
+      "effective_at": "2026-04-02T09:20:00"
+    }
+  ]
+}

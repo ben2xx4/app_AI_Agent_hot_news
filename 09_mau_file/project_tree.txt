@@ -1,0 +1,25 @@
+project/
+  app/
+    api/
+    services/
+    repositories/
+    models/
+    schemas/
+    core/
+    agent/
+    retrieval/
+  pipelines/
+    news/
+    price/
+    weather/
+    policy/
+    traffic/
+  scripts/
+  tests/
+  docs/
+  docker/
+  data/
+    raw/
+    processed/
+  .env
+  docker-compose.yml

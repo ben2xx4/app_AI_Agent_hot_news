@@ -1,0 +1,22 @@
+{
+  "Pagination": {
+    "TotalRecords": 2,
+    "TotalPages": 1,
+    "PageSize": 0,
+    "PageNumber": 1
+  },
+  "Objects": [
+    {
+      "Title": "Xăng RON 95-III",
+      "Zone1Price": 26970,
+      "Zone2Price": 27500,
+      "LastModified": "2026-04-03T16:31:47Z"
+    },
+    {
+      "Title": "Xăng E5 RON 92-II",
+      "Zone1Price": 25420,
+      "Zone2Price": 25920,
+      "LastModified": "2026-04-03T16:32:59Z"
+    }
+  ]
+}

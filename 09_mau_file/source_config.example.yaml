@@ -1,0 +1,16 @@
+sources:
+  - name: vnexpress_rss_thoi_su
+    pipeline: news
+    source_type: rss
+    url: "https://example.com/rss"
+    category_default: "thoi_su"
+    active: true
+    fetch_interval_minutes: 10
+
+  - name: sjc_gold_price
+    pipeline: price
+    source_type: html
+    url: "https://example.com/gold"
+    category_default: "gia_vang"
+    active: true
+    fetch_interval_minutes: 15

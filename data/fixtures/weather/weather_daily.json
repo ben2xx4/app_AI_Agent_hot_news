@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "location": "Hà Nội",
+      "forecast_time": "2026-04-03T11:00:00",
+      "min_temp": 24,
+      "max_temp": 31,
+      "humidity": 82,
+      "wind": "Đông Nam 12 km/h",
+      "weather_text": "Có mưa dông rải rác vào chiều và tối",
+      "warning_text": "Cảnh báo gió giật cấp 6 khi có dông"
+    },
+    {
+      "location": "TP.HCM",
+      "forecast_time": "2026-04-03T11:00:00",
+      "min_temp": 27,
+      "max_temp": 35,
+      "humidity": 68,
+      "wind": "Tây Nam 9 km/h",
+      "weather_text": "Ngày nắng, chiều tối có thể mưa rào",
+      "warning_text": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "records": [
+    {
+      "item_type": "fx",
+      "item_name": "ty-gia-usd-ban-ra",
+      "region": "viet_nam",
+      "buy_price": 25120,
+      "sell_price": 25460,
+      "unit": "VND/USD",
+      "effective_at": "2026-04-03T08:30:00"
+    },
+    {
+      "item_type": "fx",
+      "item_name": "ty-gia-usd-ban-ra",
+      "region": "viet_nam",
+      "buy_price": 25090,
+      "sell_price": 25410,
+      "unit": "VND/USD",
+      "effective_at": "2026-04-02T08:30:00"
+    }
+  ]
+}
