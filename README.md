@@ -17,6 +17,7 @@ Trên lớp dữ liệu này, repo hiện có:
 - Retrieval/index experimental cho `news` và `policy`
 
 Tài liệu liên quan:
+- [Hướng dẫn chạy nhanh](/Users/lamhung/Downloads/codex_news_ai_guide-2/HUONG_DAN_CHAY_NHANH.md)
 - [Kiến trúc](/Users/lamhung/Downloads/codex_news_ai_guide-2/docs/architecture.md)
 - [Pipeline](/Users/lamhung/Downloads/codex_news_ai_guide-2/docs/pipelines.md)
 - [AI agent](/Users/lamhung/Downloads/codex_news_ai_guide-2/docs/ai-agent.md)
