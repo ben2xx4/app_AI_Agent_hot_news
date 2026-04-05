@@ -8,18 +8,27 @@ from pathlib import Path
 import _bootstrap  # noqa: F401
 
 from app.core.logging import get_logger
-from app.db.session import ensure_sqlite_schema
+from app.db.session import ensure_sqlite_schema, session_scope
+from app.services.cleanup_service import CleanupService
+from app.services.retention_config import load_cleanup_retention_policy
 from app.services.scheduler_service import SchedulerService
 
 logger = get_logger(__name__)
 
 
 def main() -> None:
+    retention = load_cleanup_retention_policy()
     parser = argparse.ArgumentParser(description="Scheduler don gian cho pipeline")
     parser.add_argument("--demo-only", action="store_true")
     parser.add_argument("--tick-seconds", type=int, default=30)
     parser.add_argument("--run-once", action="store_true")
     parser.add_argument("--show-status", action="store_true")
+    parser.add_argument("--cleanup-after-run", action="store_true")
+    parser.add_argument("--cleanup-apply", action="store_true")
+    parser.add_argument("--cleanup-news-days", type=int, default=None)
+    parser.add_argument("--cleanup-traffic-days", type=int, default=None)
+    parser.add_argument("--cleanup-raw-days", type=int, default=None)
+    parser.add_argument("--cleanup-crawl-job-days", type=int, default=None)
     parser.add_argument(
         "--pipeline",
         action="append",
@@ -42,15 +51,39 @@ def main() -> None:
     )
 
     if args.show_status:
-        print(json.dumps({"jobs": service.dump_status()}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {
+                    "summary": service.dump_health_summary(),
+                    "jobs": service.dump_status(),
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return
 
     while True:
         logger.info("Bat dau vong scheduler")
         results = service.run_due_jobs()
+        cleanup_summary = None
+        if args.cleanup_after_run:
+            with session_scope() as db:
+                cleanup_summary = CleanupService(db).run(
+                    apply=args.cleanup_apply,
+                    news_days=args.cleanup_news_days or retention.articles_days,
+                    traffic_days=args.cleanup_traffic_days or retention.traffic_events_days,
+                    raw_days=args.cleanup_raw_days or retention.raw_documents_days,
+                    crawl_job_days=args.cleanup_crawl_job_days or retention.crawl_jobs_days,
+                )
         print(
             json.dumps(
-                {"runs": results, "jobs": service.dump_status()},
+                {
+                    "runs": results,
+                    "cleanup": cleanup_summary,
+                    "summary": service.dump_health_summary(),
+                    "jobs": service.dump_status(),
+                },
                 ensure_ascii=False,
                 indent=2,
             )

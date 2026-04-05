@@ -41,14 +41,19 @@ class ToolRegistry:
             {
                 "type": "function",
                 "name": "get_hot_news",
-                "description": "Lay danh sach tin hot moi nhat.",
+                "description": (
+                    "Lay danh sach tin hot moi nhat, "
+                    "co the loc theo dia diem hoac chu de."
+                ),
                 "parameters": self._strict_schema(
                     properties={
                         "limit": self._nullable(
-                            {"type": "integer", "minimum": 1, "maximum": 10}
-                        )
+                            {"type": "integer", "minimum": 1, "maximum": 20}
+                        ),
+                        "location": self._nullable({"type": "string"}),
+                        "query": self._nullable({"type": "string"}),
                     },
-                    required=["limit"],
+                    required=["limit", "location", "query"],
                 ),
                 "strict": True,
             },
@@ -121,7 +126,11 @@ class ToolRegistry:
 
     def call(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
         if name == "get_hot_news":
-            return self.news_service.get_hot_news(limit=self._get_limit(args))
+            return self.news_service.get_hot_news(
+                limit=self._get_limit(args),
+                location=args.get("location"),
+                query=args.get("query"),
+            )
         if name == "search_news":
             return self.news_service.search_news(query=args["query"], limit=self._get_limit(args))
         if name == "get_latest_price":

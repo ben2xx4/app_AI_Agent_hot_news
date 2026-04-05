@@ -41,6 +41,9 @@ LOCATION_DISPLAY_NAMES = {
     "Ha Noi": "Hà Nội",
     "TP.HCM": "TP.HCM",
     "Da Nang": "Đà Nẵng",
+    "Hai Phong": "Hải Phòng",
+    "Can Tho": "Cần Thơ",
+    "Nha Trang": "Nha Trang",
     "Việt Nam": "Việt Nam",
 }
 
@@ -105,6 +108,36 @@ NEWS_TOPIC_ALIASES = {
         "truong hoc",
         "danh gia nang luc",
     ],
+}
+
+NEWS_QUERY_STOPWORDS = {
+    "hom",
+    "nay",
+    "la",
+    "co",
+    "gi",
+    "nao",
+    "khong",
+    "nguoi",
+    "can",
+    "luu",
+    "y",
+    "the",
+    "ra",
+    "sao",
+    "o",
+    "tai",
+    "cho",
+    "toi",
+    "voi",
+    "ve",
+    "mot",
+    "nhung",
+    "cac",
+    "duoc",
+    "khi",
+    "de",
+    "thi",
 }
 
 TREND_DISPLAY_NAMES = {
@@ -184,6 +217,40 @@ def expand_news_topic_query(query: str | None) -> list[str]:
         return []
     aliases = NEWS_TOPIC_ALIASES.get(folded, [])
     ordered = [folded, *aliases]
+    seen: set[str] = set()
+    expanded: list[str] = []
+    for item in ordered:
+        if not item or item in seen:
+            continue
+        seen.add(item)
+        expanded.append(item)
+    return expanded
+
+
+def expand_news_search_query(query: str | None) -> list[str]:
+    topic_queries = expand_news_topic_query(query)
+    if topic_queries:
+        return topic_queries
+
+    folded = fold_text(query)
+    if not folded:
+        return []
+
+    words = [
+        word
+        for word in folded.split()
+        if len(word) >= 3 and not word.isdigit() and word not in NEWS_QUERY_STOPWORDS
+    ]
+    ordered = [folded]
+    for size in (3, 2):
+        if len(words) < size:
+            continue
+        ordered.extend(
+            " ".join(words[index : index + size])
+            for index in range(len(words) - size + 1)
+        )
+    ordered.extend(words)
+
     seen: set[str] = set()
     expanded: list[str] = []
     for item in ordered:

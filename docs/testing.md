@@ -16,9 +16,27 @@
 .venv/bin/pytest -q tests/unit/test_live_parsers.py
 ```
 
+### Chạy test retention và ranking theo source
+```bash
+.venv/bin/pytest -q tests/unit/test_retention_processing.py
+.venv/bin/pytest -q tests/unit/test_news_source_config.py
+.venv/bin/pytest -q tests/unit/test_traffic_retention.py
+.venv/bin/pytest -q tests/unit/test_policy_search.py
+```
+
+### Chạy test cleanup local
+```bash
+.venv/bin/pytest -q tests/unit/test_retention_config.py tests/unit/test_cleanup_service.py tests/unit/test_scheduler_service.py
+```
+
 ### Chạy test conversation và fallback chat
 ```bash
 .venv/bin/pytest -q tests/unit/test_chat_conversations.py tests/unit/test_chat_agent.py
+```
+
+### Chạy ma trận test lớn cho cách hỏi chat
+```bash
+.venv/bin/pytest -q tests/unit/test_chat_query_matrix.py tests/unit/test_chat_runtime_matrix.py
 ```
 
 ### Chạy test retrieval experimental
@@ -42,23 +60,45 @@
 - `tests/unit/test_price_pipeline.py`
 - `tests/unit/test_processing.py`
 - `tests/unit/test_live_parsers.py`
+- `tests/unit/test_retention_processing.py`
+- `tests/unit/test_traffic_retention.py`
+- `tests/unit/test_source_metadata.py`
+- `tests/unit/test_retention_config.py`
+- `tests/unit/test_cleanup_service.py`
 
 Bao phủ:
 - Parser demo cho `news` và `price`
 - Xử lý chuẩn hóa và dedup cơ bản
 - Smoke test cho parser live của cả 5 pipeline
+- Retention `30 ngày` cho `news`
+- Retention `14 ngày` cho `traffic`
+- Metadata source hiện tại được ưu tiên hơn DB config cũ khi read-path cần quyết định `demo_only` hoặc `max_age_days`
+- Cleanup dry-run/apply cho `articles`, `traffic_events`, `raw_documents`, `crawl_jobs`
+- Retention cleanup đọc đúng từ `config/retention.yml`
 
 ### 2. Unit test cho chat
 - `tests/unit/test_chat_agent.py`
 - `tests/unit/test_chat_conversations.py`
+- `tests/unit/test_chat_query_matrix.py`
+- `tests/unit/test_chat_runtime_matrix.py`
 
 Bao phủ:
 - Tool schema strict cho OpenAI tool-calling
 - Fallback khi OpenAI unavailable
 - Bộ câu hỏi hội thoại mẫu theo intent
+- Regression cho `traffic_lookup` theo focus `cấm đường`, `tai nạn`
+- Ma trận lớn cho các biến thể câu hỏi:
+  - `Tin hot hôm nay là gì?`
+  - `Top 5 tin hot`
+  - `Top 10 tin hot`
+  - `Ở TP.HCM có tin hot gì?`
+  - `Tin hot về giáo dục`
+  - cùng nhiều biến thể `giá`, `thời tiết`, `policy`, `traffic`, `smalltalk`
+- Ma trận runtime dùng dữ liệu seed để kiểm tra ý chính của câu trả lời, không ép khớp từng chữ
 
 ### 3. Unit test cho retrieval experimental
 - `tests/unit/test_retrieval_experimental.py`
+- `tests/unit/test_policy_search.py`
 
 Bao phủ:
 - Build index cho `news` và `policy`
@@ -66,6 +106,8 @@ Bao phủ:
 - Fallback khi retrieval tắt
 - Fallback khi retrieval lỗi
 - Chat flow cho `topic_summary` và `policy_lookup` có dùng retrieval
+- Search `policy` ưu tiên recent nhưng không loại mất văn bản cũ còn liên quan
+- `PolicyService` ưu tiên source live hơn demo nếu cùng có kết quả phù hợp
 
 ### 4. Unit test cho scheduler local
 - `tests/unit/test_scheduler_service.py`
@@ -164,7 +206,7 @@ Kết quả xác minh gần nhất:
 Kết quả:
 ```text
 ruff: pass
-pytest: 33 passed
+pytest: 332 passed
 ```
 
 ## Lưu ý khi chạy test
@@ -183,6 +225,7 @@ pytest: 33 passed
 - Integration test cho API chính
 - Unit test cho scheduler local
 - Test retrieval experimental cơ bản
+- Test retention cleanup config trung tâm
 
 ### Experimental
 - Retrieval `news` và `policy` chỉ đang ở mức local sparse index

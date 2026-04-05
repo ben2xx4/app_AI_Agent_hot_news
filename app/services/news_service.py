@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from html import unescape
 
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
+from app.core.news_hotness import rank_hot_news_rows
+from app.core.text import expand_news_search_query, fold_text
 from app.repositories.news_repository import NewsRepository
 from app.services.helpers import load_source_name_map
 from app.services.retrieval_service import RetrievalService
@@ -23,9 +26,11 @@ class NewsService:
         items = [
             {
                 "id": row.id,
-                "title": row.title,
-                "summary": row.summary,
-                "content_clean": row.content_clean,
+                "title": unescape(row.title) if row.title else row.title,
+                "summary": unescape(row.summary) if row.summary else row.summary,
+                "content_clean": (
+                    unescape(row.content_clean) if row.content_clean else row.content_clean
+                ),
                 "category": row.category,
                 "published_at": row.published_at,
                 "canonical_url": row.canonical_url,
@@ -40,8 +45,70 @@ class NewsService:
         )
         return {"items": items, "updated_at": updated_at}
 
-    def get_hot_news(self, limit: int = 10) -> dict:
-        return self._build_payload(self.repo.list_hot(self.db, limit=limit))
+    def _matches_hot_news_location(self, row, location: str) -> bool:
+        aliases = {
+            "Hà Nội": ("ha noi", "hanoi"),
+            "TP.HCM": ("tp hcm", "ho chi minh", "sai gon"),
+            "Đà Nẵng": ("da nang",),
+            "Hải Phòng": ("hai phong",),
+            "Cần Thơ": ("can tho",),
+            "Nha Trang": ("nha trang",),
+        }.get(location, (fold_text(location),))
+        haystack = " ".join(
+            [
+                fold_text(getattr(row, "title", None)),
+                fold_text(getattr(row, "summary", None)),
+                fold_text(getattr(row, "content_clean", None)),
+            ]
+        )
+        return any(alias and alias in haystack for alias in aliases)
+
+    def _matches_hot_news_query(self, row, query: str) -> bool:
+        queries = expand_news_search_query(query) or [fold_text(query)]
+        haystack = " ".join(
+            [
+                fold_text(getattr(row, "title", None)),
+                fold_text(getattr(row, "summary", None)),
+                fold_text(getattr(row, "content_clean", None)),
+                fold_text(getattr(row, "category", None)),
+            ]
+        )
+        return any(candidate and candidate in haystack for candidate in queries)
+
+    def get_hot_news(
+        self,
+        limit: int = 10,
+        *,
+        location: str | None = None,
+        query: str | None = None,
+    ) -> dict:
+        candidate_rows = self.repo.get_recent_articles(
+            self.db,
+            hours=48,
+            limit=max(limit * 25, 250),
+        )
+        filtered_rows = candidate_rows
+        if query:
+            filtered_rows = [
+                row for row in filtered_rows if self._matches_hot_news_query(row, query)
+            ]
+            if not filtered_rows:
+                filtered_rows = self.repo.search(self.db, query=query, limit=max(limit * 4, 20))
+        if location:
+            filtered_rows = [
+                row for row in filtered_rows if self._matches_hot_news_location(row, location)
+            ]
+        source_map = load_source_name_map(self.db, [row.source_id for row in candidate_rows])
+        hot_rows = rank_hot_news_rows(
+            filtered_rows,
+            source_name_map=source_map,
+            limit=limit,
+        )
+        payload = self._build_payload(hot_rows)
+        payload["requested_location"] = location
+        payload["requested_query"] = query
+        payload["requested_limit"] = limit
+        return payload
 
     def search_news(self, query: str, limit: int = 10) -> dict:
         return self._build_payload(self.repo.search(self.db, query=query, limit=limit))

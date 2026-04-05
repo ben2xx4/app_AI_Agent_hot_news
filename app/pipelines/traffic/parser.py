@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Callable
+from datetime import UTC, datetime
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -11,12 +12,17 @@ from app.core.logging import get_logger
 from app.core.text import fold_text
 from app.core.traffic_rules import is_relevant_traffic_content
 from app.pipelines.common.fetcher import fetch_url_text
-from app.pipelines.common.processing import normalize_whitespace, parse_datetime
+from app.pipelines.common.processing import (
+    is_datetime_within_age_window,
+    normalize_whitespace,
+    parse_datetime,
+)
 from app.pipelines.common.records import SourceDefinition, TrafficRecord
 
 logger = get_logger(__name__)
 
 DetailFetcher = Callable[[str, SourceDefinition], str]
+NowProvider = Callable[[], datetime]
 
 
 def _default_detail_fetcher(url: str, source: SourceDefinition) -> str:
@@ -108,6 +114,7 @@ def _parse_vov_listing(
     payload: str,
     *,
     detail_fetcher: DetailFetcher,
+    now_provider: NowProvider,
 ) -> list[TrafficRecord]:
     soup = BeautifulSoup(payload, "html.parser")
     site_root = str(source.extra.get("site_root") or source.url or "")
@@ -127,7 +134,11 @@ def _parse_vov_listing(
         try:
             detail_payload = detail_fetcher(detail_url, source)
             record = _parse_vov_detail(detail_url, detail_payload, source)
-            if record is not None:
+            if record is not None and is_datetime_within_age_window(
+                record.start_time,
+                source.extra.get("max_age_days"),
+                now_provider=now_provider,
+            ):
                 records.append(record)
         except Exception as exc:
             logger.warning("Khong parse duoc tin giao thong %s: %s", detail_url, exc)
@@ -196,6 +207,7 @@ def _parse_vnexpress_listing(
     payload: str,
     *,
     detail_fetcher: DetailFetcher,
+    now_provider: NowProvider,
 ) -> list[TrafficRecord]:
     soup = BeautifulSoup(payload, "html.parser")
     site_root = str(source.extra.get("site_root") or source.url or "")
@@ -215,7 +227,11 @@ def _parse_vnexpress_listing(
         try:
             detail_payload = detail_fetcher(detail_url, source)
             record = _parse_vnexpress_detail(detail_url, detail_payload, source)
-            if record is not None:
+            if record is not None and is_datetime_within_age_window(
+                record.start_time,
+                source.extra.get("max_age_days"),
+                now_provider=now_provider,
+            ):
                 records.append(record)
         except Exception as exc:
             logger.warning("Khong parse duoc tin giao thong VnExpress %s: %s", detail_url, exc)
@@ -230,18 +246,22 @@ def parse_traffic_payload(
     payload: str,
     *,
     detail_fetcher: DetailFetcher | None = None,
+    now_provider: NowProvider | None = None,
 ) -> list[TrafficRecord]:
+    effective_now_provider = now_provider or (lambda: datetime.now(UTC))
     if source.parser == "vov_listing_html":
         return _parse_vov_listing(
             source,
             payload,
             detail_fetcher=detail_fetcher or _default_detail_fetcher,
+            now_provider=effective_now_provider,
         )
     if source.parser == "vnexpress_listing_html":
         return _parse_vnexpress_listing(
             source,
             payload,
             detail_fetcher=detail_fetcher or _default_detail_fetcher,
+            now_provider=effective_now_provider,
         )
 
     data = json.loads(payload)
@@ -259,4 +279,13 @@ def parse_traffic_payload(
                 url=row.get("url"),
             )
         )
-    return [record for record in records if record.title]
+    return [
+        record
+        for record in records
+        if record.title
+        and is_datetime_within_age_window(
+            record.start_time,
+            source.extra.get("max_age_days"),
+            now_provider=effective_now_provider,
+        )
+    ]

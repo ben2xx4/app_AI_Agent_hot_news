@@ -12,8 +12,14 @@ class TrafficService:
         self.db = db
         self.repo = TrafficRepository()
 
-    def get_traffic_updates(self, location: str | None = None, limit: int = 10) -> dict:
-        rows = self.repo.list_latest(self.db, location=location, limit=limit)
+    def get_traffic_updates(
+        self,
+        location: str | None = None,
+        *,
+        focus: str | None = None,
+        limit: int = 10,
+    ) -> dict:
+        rows = self.repo.list_latest(self.db, location=location, focus=focus, limit=limit)
         source_map = load_source_name_map(self.db, [row.source_id for row in rows])
         items = [
             {
@@ -30,4 +36,4 @@ class TrafficService:
             for row in rows
         ]
         updated_at = max((row["start_time"] for row in items if row["start_time"]), default=None)
-        return {"items": items, "updated_at": updated_at}
+        return {"items": items, "updated_at": updated_at, "focus": focus, "location": location}

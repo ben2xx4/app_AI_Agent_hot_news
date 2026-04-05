@@ -163,13 +163,23 @@ def test_chat_finance_question_routes_to_topic_summary(seeded_db) -> None:
 
 def test_chat_weather_unknown_location_returns_helpful_message(seeded_db) -> None:
     with seeded_db() as db:
+        payload = ChatService(db).answer_question("Thời tiết Vũng Tàu hôm nay thế nào?")
+
+    assert payload["intent"] == "weather_lookup"
+    assert payload["tool_called"] == "get_weather"
+    assert "vung tau" in fold_text(payload["answer"])
+    assert "ha noi" in fold_text(payload["answer"])
+    assert "tp hcm" in fold_text(payload["answer"])
+
+
+def test_chat_weather_new_city_returns_weather_data(seeded_db) -> None:
+    with seeded_db() as db:
         payload = ChatService(db).answer_question("Thời tiết Hải Phòng hôm nay thế nào?")
 
     assert payload["intent"] == "weather_lookup"
     assert payload["tool_called"] == "get_weather"
+    assert payload["data"]["location"] == "Hải Phòng"
     assert "hai phong" in fold_text(payload["answer"])
-    assert "ha noi" in fold_text(payload["answer"])
-    assert "tp hcm" in fold_text(payload["answer"])
 
 
 def test_chat_weather_warning_query_does_not_parse_fake_location(seeded_db) -> None:
@@ -188,6 +198,18 @@ def test_chat_blocked_road_question_routes_to_traffic(seeded_db) -> None:
 
     assert payload["intent"] == "traffic_lookup"
     assert payload["tool_called"] == "get_traffic_updates"
+    assert payload["data"]["focus"] == "blocked_road"
+    assert "cam duong" in fold_text(payload["answer"])
+    assert payload["answer"]
+
+
+def test_chat_accident_question_routes_to_traffic_focus(seeded_db) -> None:
+    with seeded_db() as db:
+        payload = ChatService(db).answer_question("Có tai nạn giao thông nào đáng chú ý không?")
+
+    assert payload["intent"] == "traffic_lookup"
+    assert payload["tool_called"] == "get_traffic_updates"
+    assert payload["data"]["focus"] == "accident"
     assert payload["answer"]
 
 

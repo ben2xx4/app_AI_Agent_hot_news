@@ -1,0 +1,5 @@
+cleanup:
+  articles_days: 30
+  traffic_events_days: 14
+  raw_documents_days: 14
+  crawl_jobs_days: 14

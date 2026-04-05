@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import feedparser
 from bs4 import BeautifulSoup
@@ -9,6 +10,7 @@ from app.core.logging import get_logger
 from app.pipelines.common.fetcher import fetch_url_text
 from app.pipelines.common.processing import (
     build_cluster_key,
+    is_datetime_within_age_window,
     normalize_whitespace,
     parse_datetime,
     stable_hash,
@@ -18,6 +20,7 @@ from app.pipelines.common.records import ArticleRecord, SourceDefinition
 logger = get_logger(__name__)
 
 DetailFetcher = Callable[[str, SourceDefinition], str]
+NowProvider = Callable[[], datetime]
 
 
 def _strip_html(value: str | None) -> str:
@@ -68,6 +71,19 @@ def _default_detail_fetcher(url: str, source: SourceDefinition) -> str:
     return result.text
 
 
+def _is_article_within_age_window(
+    article: ArticleRecord,
+    source: SourceDefinition,
+    *,
+    now_provider: NowProvider,
+) -> bool:
+    return is_datetime_within_age_window(
+        article.published_at,
+        source.extra.get("max_age_days"),
+        now_provider=now_provider,
+    )
+
+
 def _parse_tuoitre_detail(url: str, payload: str) -> dict[str, object]:
     soup = BeautifulSoup(payload, "html.parser")
     content_root = soup.select_one(".detail-content[data-role='content']") or soup.select_one(
@@ -115,16 +131,19 @@ def _parse_tuoitre_feed_with_details(
     payload: str,
     *,
     detail_fetcher: DetailFetcher,
+    now_provider: NowProvider,
 ) -> list[ArticleRecord]:
     parsed = feedparser.parse(payload)
     articles: list[ArticleRecord] = []
     max_items = int(source.extra.get("max_items", 8))
 
-    for index, entry in enumerate(parsed.entries):
-        if index >= max_items:
+    for entry in parsed.entries:
+        if len(articles) >= max_items:
             break
         article = _build_article_record(source, entry)
         if article is None:
+            continue
+        if not _is_article_within_age_window(article, source, now_provider=now_provider):
             continue
 
         try:
@@ -138,6 +157,8 @@ def _parse_tuoitre_feed_with_details(
             article.published_at = detail.get("published_at") or article.published_at
         except Exception as exc:
             logger.warning("Khong enrich duoc bai viet %s: %s", article.canonical_url, exc)
+        if not _is_article_within_age_window(article, source, now_provider=now_provider):
+            continue
 
         articles.append(article)
     return articles
@@ -148,20 +169,32 @@ def parse_news_feed(
     payload: str,
     *,
     detail_fetcher: DetailFetcher | None = None,
+    now_provider: NowProvider | None = None,
 ) -> list[ArticleRecord]:
+    effective_now_provider = now_provider or (lambda: datetime.now(UTC))
     if source.parser == "tuoitre_rss_detail" and not source.extra.get("_used_demo"):
         return _parse_tuoitre_feed_with_details(
             source,
             payload,
             detail_fetcher=detail_fetcher or _default_detail_fetcher,
+            now_provider=effective_now_provider,
         )
 
     parsed = feedparser.parse(payload)
     articles: list[ArticleRecord] = []
+    max_items = int(source.extra.get("max_items", len(parsed.entries) or 50))
 
     for entry in parsed.entries:
+        if len(articles) >= max_items:
+            break
         article = _build_article_record(source, entry)
         if article is None:
+            continue
+        if not _is_article_within_age_window(
+            article,
+            source,
+            now_provider=effective_now_provider,
+        ):
             continue
         articles.append(article)
     return articles

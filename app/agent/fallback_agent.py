@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.agent.intents import IntentResult, IntentRouter
+from app.core.text import display_field
 from app.services.news_service import NewsService
 from app.services.policy_service import PolicyService
 from app.services.price_service import PriceService
@@ -66,7 +67,11 @@ class FallbackAgent:
                 },
             )
         if intent.intent == "hot_news":
-            return "get_hot_news", self.news_service.get_hot_news(limit=5)
+            return "get_hot_news", self.news_service.get_hot_news(
+                limit=intent.limit or 5,
+                location=intent.location,
+                query=intent.query,
+            )
         if intent.intent == "price_lookup":
             return "get_latest_price", self.price_service.get_latest_price(
                 item_name=intent.item_name
@@ -97,7 +102,8 @@ class FallbackAgent:
             )
         if intent.intent == "traffic_lookup":
             return "get_traffic_updates", self.traffic_service.get_traffic_updates(
-                location=intent.location
+                location=intent.location,
+                focus=intent.focus,
             )
         if intent.intent == "source_compare":
             return "search_news", self.news_service.compare_sources(query=intent.query or "tin hot")
@@ -135,10 +141,48 @@ class FallbackAgent:
                 )
             return "Chưa hiểu rõ câu hỏi. Bạn hãy hỏi cụ thể hơn."
         if intent.intent == "hot_news":
-            titles = [item["title"] for item in payload.get("items", [])[:5]]
+            titles = [item["title"] for item in payload.get("items", [])]
+            requested_topic = display_field(payload.get("requested_query")) or payload.get(
+                "requested_query"
+            )
+            is_freeform_query = bool(
+                requested_topic and len(str(requested_topic).split()) >= 6
+            )
             if not titles:
-                return "Hiện chưa có dữ liệu tin hot."
-            return self._format_bulleted_section("Tin hot gần nhất:", titles)
+                location_text = (
+                    f" tại {payload.get('requested_location')}"
+                    if payload.get("requested_location")
+                    else ""
+                )
+                topic_text = (
+                    " liên quan đến câu hỏi của bạn"
+                    if is_freeform_query
+                    else f" về {requested_topic}"
+                    if requested_topic
+                    else ""
+                )
+                return self._format_guided_empty_state(
+                    f"Hiện chưa có dữ liệu tin{topic_text}{location_text}.",
+                    [
+                        "Thử hỏi: Có gì mới về tài chính hôm nay?",
+                        "Thử hỏi: Báo nào đang nói nhiều về giáo dục?",
+                    ],
+                )
+            heading = "Tin hot gần nhất:"
+            if is_freeform_query and payload.get("requested_location"):
+                heading = f"Tin liên quan tại {payload['requested_location']}:"
+            elif is_freeform_query:
+                heading = "Tin liên quan đến câu hỏi của bạn:"
+            elif requested_topic and payload.get("requested_location"):
+                heading = (
+                    f"Tin hot về {requested_topic} tại "
+                    f"{payload['requested_location']}:"
+                )
+            elif requested_topic:
+                heading = f"Tin hot về {requested_topic}:"
+            elif payload.get("requested_location"):
+                heading = f"Tin hot tại {payload['requested_location']}:"
+            return self._format_bulleted_section(heading, titles)
         if intent.intent == "price_lookup":
             items = payload.get("items", [])
             if not items:
@@ -201,13 +245,37 @@ class FallbackAgent:
         if intent.intent == "policy_lookup":
             titles = [item["title"] for item in payload.get("items", [])[:3]]
             if not titles:
-                return "Hiện chưa có văn bản phù hợp."
+                return self._format_guided_empty_state(
+                    "Hiện chưa có văn bản phù hợp.",
+                    [
+                        "Thử hỏi: Có chính sách mới nào về giáo dục không?",
+                        "Thử hỏi: Có thông báo mới nào từ Bộ Y tế không?",
+                    ],
+                )
             return self._format_bulleted_section("Văn bản liên quan:", titles)
         if intent.intent == "traffic_lookup":
             titles = [item["title"] for item in payload.get("items", [])[:3]]
             if not titles:
-                return "Hiện chưa có cập nhật giao thông đáng chú ý."
-            return self._format_bulleted_section("Cập nhật giao thông:", titles)
+                empty_message = {
+                    "blocked_road": "Hiện chưa có cập nhật cấm đường đáng chú ý.",
+                    "congestion": "Hiện chưa có cập nhật ùn tắc đáng chú ý.",
+                    "accident": "Hiện chưa có cập nhật tai nạn đáng chú ý.",
+                }.get(intent.focus, "Hiện chưa có cập nhật giao thông đáng chú ý.")
+                return self._format_guided_empty_state(
+                    empty_message,
+                    [
+                        "Thử hỏi: Có tin giao thông nào đáng chú ý hôm nay không?",
+                        "Thử hỏi: Có tuyến đường nào đang bị cấm không?",
+                    ],
+                )
+            return self._format_bulleted_section(
+                {
+                    "blocked_road": "Cập nhật cấm đường:",
+                    "congestion": "Cập nhật ùn tắc:",
+                    "accident": "Cập nhật tai nạn:",
+                }.get(intent.focus, "Cập nhật giao thông:"),
+                titles,
+            )
         if intent.intent == "source_compare":
             comparisons = payload.get("comparisons", [])
             if not comparisons:
@@ -218,7 +286,13 @@ class FallbackAgent:
         lines = payload.get("summary_lines", [])
         if not lines:
             topic = payload.get("topic") or "chủ đề này"
-            return f"Chưa có dữ liệu tổng hợp cho {topic}."
+            return self._format_guided_empty_state(
+                f"Chưa có dữ liệu tổng hợp cho {topic}.",
+                [
+                    "Thử hỏi: Tin hot hôm nay là gì?",
+                    "Thử hỏi: Báo nào đang nói nhiều về giáo dục?",
+                ],
+            )
         return self._format_bulleted_section("Tóm tắt nhanh:", lines[:5])
 
     def _format_bulleted_section(self, title: str, lines: list[str]) -> str:
@@ -226,6 +300,9 @@ class FallbackAgent:
         if not cleaned_lines:
             return title
         return "\n".join([title, *[f"- {line}" for line in cleaned_lines]])
+
+    def _format_guided_empty_state(self, title: str, suggestions: list[str]) -> str:
+        return self._format_bulleted_section(title, suggestions)
 
     def _extract_sources(self, payload: dict) -> list[str]:
         if "items" in payload:

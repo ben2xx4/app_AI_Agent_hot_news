@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.text import expand_news_topic_query, fold_text
+from app.core.text import expand_news_search_query, fold_text
 from app.models import Article, ArticleCluster
 
 
@@ -81,7 +81,7 @@ class NewsRepository:
             .limit(max(limit * 10, 100))
         )
         rows = list(db.scalars(stmt))
-        queries = expand_news_topic_query(query) or [query]
+        queries = expand_news_search_query(query) or [query]
         strict_topic = fold_text(query) in {"chinh tri", "tai chinh", "kinh te", "giao duc"}
         scored_matches = [
             (

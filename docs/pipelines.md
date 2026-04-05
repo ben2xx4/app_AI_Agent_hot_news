@@ -2,6 +2,7 @@
 
 ## Quy uoc chung
 - Nguon du lieu cau hinh trong `config/sources.yml`
+- Co the cau hinh retention theo tung source bang `max_age_days`
 - Moi pipeline deu co:
   - `fetch`
   - `parse`
@@ -22,6 +23,10 @@
   - Tao cluster key don gian theo token tieu de
 - Nguon live dang dung:
   - `tuoitre_rss_thoi_su`: RSS + fetch HTML detail de lay summary, noi dung, tac gia, ngay dang
+  - `vnexpress_*`, `dantri_*`, `thanhnien_*`: RSS section parser
+- Retention:
+  - Toan bo source `news` hien dung `max_age_days=30`
+  - Bai qua 30 ngay bi bo ngay tu luc parse
 
 ## Pipeline gia ca
 - Dau vao: JSON/HTML bang gia
@@ -52,6 +57,10 @@
 - Nguon live dang dung:
   - `congbao_policy_updates_live`: parse listing HTML va detail HTML tu Cong bao Chinh phu
   - Hien tai uu tien metadata + trich yeu; chua OCR/PDF text full
+- Retention:
+  - Khong cat ingest theo `max_age_days`
+  - Search uu tien van ban moi hon, nhung van giu kha nang tra van ban cu neu con lien quan
+  - Neu cung query co ca source live va demo, runtime uu tien ket qua live
 
 ## Pipeline giao thong
 - Dau vao: RSS/HTML/JSON su kien giao thong
@@ -61,6 +70,12 @@
   - Ho tro loc theo thanh pho/khu vuc
 - Nguon live dang dung:
   - `vov_giaothong_traffic_live`: parse danh sach bai viet va detail HTML tu VOV Giao thong
+  - `vnexpress_traffic_live`: parse listing + detail HTML tu VnExpress Giao thong
+- Retention:
+  - Source live `traffic` dung `max_age_days=14`
+  - Cua so 14 ngay duoc ap ca luc ingest va luc doc du lieu
+  - Read-path uu tien ban ghi live truoc ban ghi demo neu DB dang co ca hai
+  - Service co them focus filter cho `cam duong`, `un tac`, `tai nan`
 
 ## Cach chay
 ```bash
@@ -82,16 +97,47 @@ Smoke test parser live:
 .venv/bin/pytest -q tests/unit/test_live_parsers.py
 ```
 
+Retention va ranking:
+```bash
+.venv/bin/pytest -q tests/unit/test_retention_processing.py
+.venv/bin/pytest -q tests/unit/test_policy_search.py
+.venv/bin/pytest -q tests/unit/test_traffic_retention.py
+```
+
 Scheduler local:
 ```bash
 .venv/bin/python scripts/run_scheduler.py --demo-only --run-once
 .venv/bin/python scripts/run_scheduler.py --show-status
 .venv/bin/python scripts/run_scheduler.py --pipeline news --source vnexpress_rss_tin_moi --run-once
+.venv/bin/python scripts/run_scheduler.py --run-once --cleanup-after-run
 ```
+
+Trang thai va health summary hien tra ve:
+- `summary`
+- `health_state`
+- `failure_streak`
+- `attention_sources`
 
 Trang thai scheduler duoc ghi vao:
 ```text
 data/processed/scheduler_status.json
+```
+
+Cleanup local:
+```bash
+.venv/bin/python scripts/run_cleanup.py
+.venv/bin/python scripts/run_cleanup.py --apply
+```
+
+Mac dinh cleanup:
+- `articles`: `30 ngay`
+- `traffic_events`: `14 ngay`
+- `raw_documents`: `14 ngay`
+- `crawl_jobs`: `14 ngay`
+
+Retention cleanup doc tu:
+```text
+config/retention.yml
 ```
 
 ## TODO mo rong

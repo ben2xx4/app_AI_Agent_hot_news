@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import get_logger
 from app.core.text import display_field
 from app.repositories.policy_repository import PolicyRepository
-from app.services.helpers import load_source_name_map
+from app.services.helpers import load_source_metadata_map, load_source_name_map
 from app.services.retrieval_service import RetrievalService
 
 logger = get_logger(__name__)
@@ -17,6 +17,22 @@ class PolicyService:
         self.repo = PolicyRepository()
         self.retrieval = RetrievalService(db)
 
+    def _prefer_live_rows(self, rows: list) -> list:
+        if not rows:
+            return rows
+        metadata_map = load_source_metadata_map(self.db, [row.source_id for row in rows])
+        has_live_rows = any(
+            not metadata_map.get(row.source_id or -1, {}).get("is_demo_only")
+            for row in rows
+        )
+        if not has_live_rows:
+            return rows
+        return [
+            row
+            for row in rows
+            if not metadata_map.get(row.source_id or -1, {}).get("is_demo_only")
+        ]
+
     def _build_payload(self, rows: list, retrieval_hits: list[dict] | None = None) -> dict:
         source_map = load_source_name_map(self.db, [row.source_id for row in rows])
         items = [
@@ -26,6 +42,7 @@ class PolicyService:
                 "doc_number": row.doc_number,
                 "title": row.title,
                 "summary": row.summary,
+                "content_clean": row.content_clean,
                 "field": display_field(row.field),
                 "issued_at": row.issued_at,
                 "effective_at": row.effective_at,
@@ -62,6 +79,7 @@ class PolicyService:
         self, query: str | None = None, field: str | None = None, limit: int = 10
     ) -> dict:
         keyword_rows = self.repo.search(self.db, query=query, field=field, limit=limit)
+        keyword_rows = self._prefer_live_rows(keyword_rows)[:limit]
         retrieval_hits: list[dict] = []
 
         if self._should_try_semantic(
@@ -83,6 +101,7 @@ class PolicyService:
             semantic_rows = self.repo.get_by_ids(
                 self.db, [hit["doc_id"] for hit in retrieval_hits]
             )
+            semantic_rows = self._prefer_live_rows(semantic_rows)
             rows = semantic_rows[:]
             seen_ids = {row.id for row in semantic_rows}
             for row in keyword_rows:
@@ -91,6 +110,7 @@ class PolicyService:
                 rows.append(row)
                 if len(rows) >= limit:
                     break
+            rows = self._prefer_live_rows(rows)
             return self._build_payload(rows[:limit], retrieval_hits=retrieval_hits)
 
         return self._build_payload(keyword_rows, retrieval_hits=[])

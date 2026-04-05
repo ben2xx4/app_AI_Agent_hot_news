@@ -9,7 +9,61 @@ sources:
     fetch_interval_minutes: 10
     timeout_seconds: 10
     retry_count: 2
+    max_items: 40
+    max_age_days: 30
     demo_fixture: "data/fixtures/news/vnexpress_tin_moi.xml"
+
+  - name: vnexpress_rss_thoi_su
+    pipeline: news
+    source_type: rss
+    url: "https://vnexpress.net/rss/thoi-su.rss"
+    parser: "rss_basic"
+    category_default: "thoi_su"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: vnexpress_rss_kinh_doanh
+    pipeline: news
+    source_type: rss
+    url: "https://vnexpress.net/rss/kinh-doanh.rss"
+    parser: "rss_basic"
+    category_default: "kinh_doanh"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: vnexpress_rss_the_gioi
+    pipeline: news
+    source_type: rss
+    url: "https://vnexpress.net/rss/the-gioi.rss"
+    parser: "rss_basic"
+    category_default: "the_gioi"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: vnexpress_rss_giao_duc
+    pipeline: news
+    source_type: rss
+    url: "https://vnexpress.net/rss/giao-duc.rss"
+    parser: "rss_basic"
+    category_default: "giao_duc"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
 
   - name: dantri_rss_tin_moi
     pipeline: news
@@ -21,6 +75,60 @@ sources:
     fetch_interval_minutes: 12
     timeout_seconds: 10
     retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: dantri_rss_the_gioi
+    pipeline: news
+    source_type: rss
+    url: "https://dantri.com.vn/rss/the-gioi.rss"
+    parser: "rss_basic"
+    category_default: "the_gioi"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: dantri_rss_kinh_doanh
+    pipeline: news
+    source_type: rss
+    url: "https://dantri.com.vn/rss/kinh-doanh.rss"
+    parser: "rss_basic"
+    category_default: "kinh_doanh"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: dantri_rss_giao_duc
+    pipeline: news
+    source_type: rss
+    url: "https://dantri.com.vn/rss/giao-duc.rss"
+    parser: "rss_basic"
+    category_default: "giao_duc"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: dantri_rss_the_thao
+    pipeline: news
+    source_type: rss
+    url: "https://dantri.com.vn/rss/the-thao.rss"
+    parser: "rss_basic"
+    category_default: "the_thao"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
 
   - name: thanhnien_rss_trang_chu
     pipeline: news
@@ -32,6 +140,60 @@ sources:
     fetch_interval_minutes: 12
     timeout_seconds: 10
     retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: thanhnien_rss_thoi_su
+    pipeline: news
+    source_type: rss
+    url: "https://thanhnien.vn/rss/thoi-su.rss"
+    parser: "rss_basic"
+    category_default: "thoi_su"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: thanhnien_rss_the_gioi
+    pipeline: news
+    source_type: rss
+    url: "https://thanhnien.vn/rss/the-gioi.rss"
+    parser: "rss_basic"
+    category_default: "the_gioi"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: thanhnien_rss_giao_duc
+    pipeline: news
+    source_type: rss
+    url: "https://thanhnien.vn/rss/giao-duc.rss"
+    parser: "rss_basic"
+    category_default: "giao_duc"
+    active: true
+    fetch_interval_minutes: 15
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
+
+  - name: thanhnien_rss_kinh_te
+    pipeline: news
+    source_type: rss
+    url: "https://thanhnien.vn/rss/kinh-te.rss"
+    parser: "rss_basic"
+    category_default: "kinh_te"
+    active: true
+    fetch_interval_minutes: 12
+    timeout_seconds: 10
+    retry_count: 2
+    max_items: 40
+    max_age_days: 30
 
   - name: tuoitre_rss_thoi_su
     pipeline: news
@@ -44,7 +206,8 @@ sources:
     timeout_seconds: 10
     retry_count: 2
     demo_fixture: "data/fixtures/news/tuoitre_thoi_su.xml"
-    max_items: 12
+    max_items: 20
+    max_age_days: 30
     detail_timeout_seconds: 12
     detail_retry_count: 1
 
@@ -236,6 +399,63 @@ sources:
       forecast_days: "2"
     location_name: "Đà Nẵng"
 
+  - name: open_meteo_weather_haiphong_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "20.8449"
+      longitude: "106.6881"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "Hải Phòng"
+
+  - name: open_meteo_weather_cantho_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "10.0452"
+      longitude: "105.7469"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "Cần Thơ"
+
+  - name: open_meteo_weather_nhatrang_live
+    pipeline: weather
+    source_type: json
+    url: "https://api.open-meteo.com/v1/forecast"
+    parser: "open_meteo_forecast"
+    category_default: "thoi_tiet"
+    active: true
+    fetch_interval_minutes: 30
+    timeout_seconds: 12
+    retry_count: 2
+    query_params:
+      latitude: "12.2388"
+      longitude: "109.1967"
+      current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m"
+      daily: "temperature_2m_max,temperature_2m_min,weather_code"
+      timezone: "Asia/Ho_Chi_Minh"
+      forecast_days: "2"
+    location_name: "Nha Trang"
+
   - name: chinhphu_policy_updates
     pipeline: policy
     source_type: json
@@ -316,6 +536,7 @@ sources:
     retry_count: 2
     site_root: "https://vovgiaothong.vn"
     max_items: 12
+    max_age_days: 14
     detail_timeout_seconds: 12
     detail_retry_count: 1
     default_location: "Việt Nam"
@@ -346,6 +567,7 @@ sources:
     retry_count: 2
     site_root: "https://vnexpress.net"
     max_items: 18
+    max_age_days: 14
     detail_timeout_seconds: 12
     detail_retry_count: 1
     default_location: "Việt Nam"

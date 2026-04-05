@@ -1,0 +1,309 @@
+TÓM TẮT HỆ THỐNG HIỆN TẠI
+
+1. PIPELINE HIỆN TẠI
+
+- Repo hiện có 5 pipeline ingestion chính:
+  - news
+  - price
+  - weather
+  - policy
+  - traffic
+
+- Cấu trúc code pipeline:
+  - app/pipelines/common/base.py
+  - app/pipelines/common/fetcher.py
+  - app/pipelines/common/processing.py
+  - app/pipelines/news/pipeline.py
+  - app/pipelines/price/pipeline.py
+  - app/pipelines/weather/pipeline.py
+  - app/pipelines/policy/pipeline.py
+  - app/pipelines/traffic/pipeline.py
+
+- Cách chạy pipeline:
+  - scripts/run_pipeline.py cho phép chạy theo --pipeline hoặc --source
+  - scripts/seed_demo_data.py dùng để reset và nạp dữ liệu demo cho cả 5 pipeline
+  - scripts/run_scheduler.py dùng để chạy scheduler local
+
+- Trạng thái từng pipeline theo code và tài liệu:
+  - news:
+    - đã hoàn thành
+    - có demo fixture
+    - có live source RSS, trong đó Tuổi Trẻ có enrich detail HTML
+    - áp retention theo source max_age_days=30
+    - tham chiếu: README.md, config/sources.yml, app/pipelines/news/*
+  - price:
+    - đã hoàn thành
+    - có demo fixture
+    - có live source cho vàng, xăng dầu, tỷ giá
+    - lookup runtime ưu tiên live hơn demo khi cùng item_name
+    - tham chiếu: README.md, config/sources.yml, app/pipelines/price/*
+  - weather:
+    - đã hoàn thành
+    - có demo fixture
+    - có live source Open-Meteo cho nhiều địa điểm
+    - tham chiếu: README.md, config/sources.yml, app/pipelines/weather/*
+  - policy:
+    - đã hoàn thành
+    - có demo fixture
+    - có live source HTML từ Công báo Chính phủ
+    - không cắt ingest theo max_age_days
+    - search ưu tiên văn bản mới hơn
+    - runtime ưu tiên source live hơn demo nếu cùng query có kết quả phù hợp
+    - tham chiếu: README.md, PROGRESS.md, config/sources.yml, app/pipelines/policy/*, app/services/policy_service.py
+  - traffic:
+    - đã hoàn thành
+    - có demo fixture
+    - có live source HTML từ VOV Giao thông và VnExpress Giao thông
+    - áp max_age_days=14
+    - runtime ưu tiên live hơn demo
+    - chat/runtime có focus filter cho cấm đường, ùn tắc, tai nạn
+    - tham chiếu: README.md, PROGRESS.md, config/sources.yml, app/pipelines/traffic/*, app/services/traffic_service.py, app/repositories/traffic_repository.py
+
+- Các phần demo:
+  - news: fixture RSS trong data/fixtures/news/*
+  - price: sjc_gold_prices, petrolimex_fuel_prices, sbv_fx_rates là demo_only_source
+  - weather: nchmf_weather_daily là demo_only_source
+  - policy: chinhphu_policy_updates là demo_only_source
+  - traffic: vov_traffic_updates là demo_only_source
+  - tham chiếu: config/sources.yml, README.md
+
+- Các phần đã chạy live:
+  - news: nhiều RSS tiếng Việt
+  - price: SJC, Petrolimex, SBV, Vietcombank
+  - weather: Open-Meteo
+  - policy: congbao.chinhphu.vn
+  - traffic: vovgiaothong.vn, vnexpress.net
+  - tham chiếu: README.md, PROGRESS.md, config/sources.yml
+
+
+2. HỆ THỐNG ĐANG CRAWL/FETCH TỪ NHỮNG WEBSITE NÀO
+
+- Nhóm news:
+  - https://vnexpress.net/rss/tin-moi-nhat.rss
+  - https://vnexpress.net/rss/thoi-su.rss
+  - https://vnexpress.net/rss/kinh-doanh.rss
+  - https://dantri.com.vn/rss/home.rss
+  - https://dantri.com.vn/rss/the-gioi.rss
+  - https://dantri.com.vn/rss/kinh-doanh.rss
+  - https://thanhnien.vn/rss/home.rss
+  - https://thanhnien.vn/rss/thoi-su.rss
+  - https://thanhnien.vn/rss/kinh-te.rss
+  - https://tuoitre.vn/rss/tin-moi-nhat.rss
+  - Tuổi Trẻ còn fetch detail HTML theo URL bài viết để enrich nội dung
+  - tham chiếu: config/sources.yml, app/pipelines/news/parser.py
+
+- Nhóm price:
+  - https://sjc.com.vn/GoldPrice/Services/PriceService.ashx
+  - https://portals.petrolimex.com.vn/~apis/portals/cms.item/search
+  - https://www.sbv.gov.vn/t%E1%BB%B7-gi%C3%A1
+  - https://portal.vietcombank.com.vn/Usercontrols/TVPortal.TyGia/pXML.aspx
+  - tham chiếu: config/sources.yml, app/pipelines/price/parser.py
+
+- Nhóm weather:
+  - https://api.open-meteo.com/v1/forecast
+  - đang dùng cho các điểm:
+    - Hà Nội
+    - TP.HCM
+    - Đà Nẵng
+    - Hải Phòng
+    - Cần Thơ
+    - Nha Trang
+  - tham chiếu: config/sources.yml, app/pipelines/weather/parser.py
+
+- Nhóm policy:
+  - https://congbao.chinhphu.vn/van-ban-dang-cong-bao/chinh-phu-c1.htm
+  - https://congbao.chinhphu.vn/van-ban-dang-cong-bao/thu-tuong-chinh-phu-c2.htm
+  - https://congbao.chinhphu.vn/van-ban-dang-cong-bao/quoc-hoi-c31.htm
+  - tham chiếu: config/sources.yml, app/pipelines/policy/parser.py
+
+- Nhóm traffic:
+  - https://vovgiaothong.vn/giao-thong
+  - https://vnexpress.net/thoi-su/giao-thong
+  - các source này parse listing rồi fetch tiếp detail bài viết
+  - tham chiếu: config/sources.yml, app/pipelines/traffic/parser.py
+
+- Các nguồn chỉ dùng demo, không phải website live:
+  - data/fixtures/news/*
+  - data/fixtures/price/*
+  - data/fixtures/weather/*
+  - data/fixtures/policy/*
+  - data/fixtures/traffic/*
+  - tham chiếu: config/sources.yml, data/fixtures/*
+
+
+3. UI HIỆN TẠI LÀ GÌ, DÙNG CÔNG NGHỆ GÌ, CÓ CHAT AI KHÔNG
+
+- UI hiện tại là một dashboard demo chạy bằng Streamlit.
+  - file chính: app/ui/streamlit_app.py
+  - module phụ:
+    - app/ui/chat_state.py
+    - app/ui/data_browser.py
+    - app/ui/source_health.py
+
+- Công nghệ UI:
+  - Streamlit
+  - HTTP client trong UI dùng httpx để gọi API backend
+  - có custom CSS/HTML render trong streamlit_app.py
+  - tham chiếu: app/ui/streamlit_app.py
+
+- Backend mà UI gọi tới:
+  - FastAPI
+  - router tổng: app/api/router.py
+  - endpoint chính:
+    - /health
+    - /news/hot
+    - /prices/latest
+    - /weather/latest
+    - /policies/search
+    - /traffic/latest
+    - /chat/query
+  - tham chiếu: app/api/router.py, app/api/routes/*
+
+- Có chat AI:
+  - có
+  - UI gọi POST /chat/query
+  - backend chat qua ChatService
+  - có đường OpenAI nếu bật config
+  - có fallback agent nội bộ khi OpenAI lỗi hoặc không sẵn sàng
+  - retrieval experimental chỉ dùng cho topic_summary và policy_lookup ngữ nghĩa
+  - tham chiếu:
+    - app/ui/streamlit_app.py
+    - app/api/routes/chat.py
+    - README.md
+    - PROGRESS.md
+
+- Phần demo và phần live trong UI/chat:
+  - UI là giao diện demo local
+  - dữ liệu hiển thị có thể là demo hoặc live tùy DB/runtime hiện tại
+  - chat AI luôn có fallback nội bộ để demo không bị gãy
+  - tham chiếu: README.md, app/ui/streamlit_app.py, app/services/chat_service.py
+
+
+4. GIAO DIỆN HIỆN TẠI GỒM NHỮNG MÀN HÌNH/THÀNH PHẦN NÀO
+
+- UI hiện tại không chia thành nhiều trang độc lập kiểu multipage.
+- Nó là một màn hình Streamlit chính với 2 tab lớn:
+  - Bảng điều khiển
+  - Data Browser
+  - tham chiếu: app/ui/streamlit_app.py
+
+- Các thành phần chính trên màn hình:
+
+  - Hero đầu trang
+    - tên render: render_hero
+    - nội dung:
+      - tiêu đề tổng quan
+      - chip trạng thái Database, Retrieval, Chat, API
+      - các metric ngắn cho Pipeline, Chat, Browser, Nguồn
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Tình trạng hệ thống"
+    - tên render: render_system_status
+    - hiển thị:
+      - API local
+      - Database runtime
+      - Chat runtime
+      - Retrieval
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Sức khỏe nguồn dữ liệu"
+    - tên render: render_source_health
+    - dữ liệu lấy từ scheduler status
+    - hiển thị:
+      - tổng số job ổn định
+      - job đến lịch
+      - job pending
+      - job lỗi
+      - danh sách source cần chú ý
+    - tham chiếu:
+      - app/ui/streamlit_app.py
+      - app/ui/source_health.py
+
+  - Khối "Bản tin biên tập"
+    - tên render: render_news_board
+    - hiển thị:
+      - 1 tin spotlight lớn
+      - danh sách tin phụ
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Bảng điều phối"
+    - tên render: render_overview_board
+    - hiển thị:
+      - nguồn nổi bật trong feed
+      - nhịp dữ liệu
+      - lộ trình demo
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Bảng giá nhanh"
+    - tên render: render_price_cards
+    - hiển thị card cho các item giá chính như vàng, USD, xăng
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Thời tiết theo điểm"
+    - tên render: render_weather_cards
+    - hiển thị card thời tiết cho nhiều địa điểm
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Khối "Trợ lý AI nổi"
+    - tên render: render_chat_hint
+    - mô tả avatar chat nổi ở góc phải
+    - tham chiếu: app/ui/streamlit_app.py
+
+  - Chat assistant dạng nổi
+    - tên render: render_chat_assistant
+    - là popover nổi ở góc phải với avatar tròn
+    - có bubble gợi ý:
+      - "Bạn cần tìm kiếm thông tin gì trong ngày, tôi có thể giúp bạn"
+    - trong popover có:
+      - lịch sử chat
+      - form nhập câu hỏi
+      - gợi ý prompt mẫu
+    - tham chiếu:
+      - app/ui/streamlit_app.py
+      - app/ui/chat_state.py
+
+  - Tab "Data Browser"
+    - tên render: render_data_browser
+    - dùng để xem dữ liệu trực tiếp từ database mà không cần SQL
+    - hỗ trợ:
+      - chọn dataset
+      - lọc theo từ khóa
+      - đổi số dòng preview
+      - bật/tắt bảng kỹ thuật
+      - xem dataframe
+      - tải CSV preview
+    - dataset có thể xem:
+      - articles
+      - price_snapshots
+      - weather_snapshots
+      - policy_documents
+      - traffic_events
+      - sources
+      - crawl_jobs
+      - raw_documents
+      - document_embeddings
+    - tham chiếu:
+      - app/ui/streamlit_app.py
+      - app/ui/data_browser.py
+
+- Tóm lại về giao diện:
+  - là một dashboard Streamlit duy nhất
+  - có 2 tab lớn
+  - có chat AI nổi
+  - có Data Browser để xem DB bằng giao diện
+  - có các khối điều phối, tin tức, giá, thời tiết và sức khỏe scheduler
+
+
+TÀI LIỆU/FILE ĐÃ DỰA VÀO ĐỂ TÓM TẮT
+
+- START_HERE.txt
+- README.md
+- 07_tien_do_va_task/PROGRESS.md
+- config/sources.yml
+- app/pipelines/*
+- app/api/*
+- app/ui/*
+- scripts/run_pipeline.py
+- scripts/run_scheduler.py
+- scripts/seed_demo_data.py
+- scripts/demo_chat.py

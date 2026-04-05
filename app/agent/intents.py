@@ -5,12 +5,15 @@ import unicodedata
 from dataclasses import dataclass
 
 KNOWN_LOCATIONS = {
-    "ha noi": "Ha Noi",
-    "hanoi": "Ha Noi",
+    "ha noi": "Hà Nội",
+    "hanoi": "Hà Nội",
     "tp hcm": "TP.HCM",
     "tphcm": "TP.HCM",
     "ho chi minh": "TP.HCM",
-    "da nang": "Da Nang",
+    "da nang": "Đà Nẵng",
+    "hai phong": "Hải Phòng",
+    "can tho": "Cần Thơ",
+    "nha trang": "Nha Trang",
 }
 
 UI_LABEL_PHRASES = {
@@ -71,6 +74,8 @@ class IntentResult:
     query: str | None = None
     location: str | None = None
     item_name: str | None = None
+    focus: str | None = None
+    limit: int | None = None
 
 
 def _fold(text: str) -> str:
@@ -93,6 +98,48 @@ def extract_item_name(question: str) -> str | None:
     for keyword, value in PRICE_ITEM_MAP.items():
         if keyword in folded:
             return value
+    return None
+
+
+TEXTUAL_LIMIT_MAP = {
+    "mot": 1,
+    "hai": 2,
+    "ba": 3,
+    "bon": 4,
+    "tu": 4,
+    "nam": 5,
+    "sau": 6,
+    "bay": 7,
+    "tam": 8,
+    "chin": 9,
+    "muoi": 10,
+}
+
+
+def extract_limit(question: str) -> int | None:
+    folded = _fold(question)
+    digit_patterns = [
+        r"\btop\s+(\d{1,2})\b",
+        r"\b(\d{1,2})\s+(?:tin|bai|ban tin)\b",
+        r"\b(\d{1,2})\s+tin hot\b",
+        r"\blay\s+(\d{1,2})\b",
+    ]
+    for pattern in digit_patterns:
+        match = re.search(pattern, folded)
+        if not match:
+            continue
+        value = int(match.group(1))
+        return max(1, min(value, 20))
+
+    text_patterns = [
+        r"\btop\s+(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b",
+        r"\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s+tin hot\b",
+    ]
+    for pattern in text_patterns:
+        match = re.search(pattern, folded)
+        if not match:
+            continue
+        return TEXTUAL_LIMIT_MAP.get(match.group(1))
     return None
 
 
@@ -138,19 +185,51 @@ def extract_freeform_weather_location(question: str) -> str | None:
     return None
 
 
+def extract_traffic_focus(question: str) -> str | None:
+    folded = _fold(question)
+    if any(keyword in folded for keyword in ["cam duong", "bi cam", "cam xe", "phan luong"]):
+        return "blocked_road"
+    if any(keyword in folded for keyword in ["ket xe", "un tac", "dong xe"]):
+        return "congestion"
+    if any(keyword in folded for keyword in ["tai nan", "va cham", "truot nga"]):
+        return "accident"
+    return None
+
+
 def is_hot_news_question(question: str) -> bool:
     folded = _fold(question)
     hot_news_keywords = [
         "tin hot",
         "tin nong",
+        "bai hot",
         "tin moi",
         "moi nhat",
         "noi bat",
-        "co gi moi",
         "tin dang chu y",
         "su kien chinh",
     ]
     return any(keyword in folded for keyword in hot_news_keywords)
+
+
+def looks_like_freeform_news_query(question: str) -> bool:
+    folded = _fold(question)
+    words = folded.split()
+    if len(words) < 6:
+        return False
+
+    news_like_markers = [
+        "la gi",
+        "co gi",
+        "the nao",
+        "ra sao",
+        "can luu y",
+        "dieu gi",
+        "vi sao",
+    ]
+    if any(marker in folded for marker in news_like_markers):
+        return True
+
+    return len(question.strip()) >= 45
 
 
 def detect_smalltalk_kind(question: str) -> str | None:
@@ -179,23 +258,40 @@ class IntentRouter:
 
         location = extract_location(question)
         item_name = extract_item_name(question)
+        limit = extract_limit(question)
         topic = extract_topic(question)
         freeform_weather_location = extract_freeform_weather_location(question)
+        traffic_focus = extract_traffic_focus(question)
 
         if "so sanh nguon" in folded or "bao nao" in folded:
             return IntentResult(intent="source_compare", query=topic)
         if "chu de" in folded or "tom tat" in folded or "nhieu bao" in folded:
             return IntentResult(intent="topic_summary", query=topic)
+        if is_hot_news_question(question):
+            return IntentResult(
+                intent="hot_news",
+                query=topic,
+                location=location,
+                limit=limit,
+            )
         if (
             "giao thong" in folded
             or "cam duong" in folded
             or "luong tuyen" in folded
             or "han che luu thong" in folded
             or "cam xe" in folded
+            or "ket xe" in folded
+            or "un tac" in folded
+            or "tai nan" in folded
+            or "va cham" in folded
             or "tuyen duong" in folded
             or ("duong" in folded and "bi cam" in folded)
         ):
-            return IntentResult(intent="traffic_lookup", location=location)
+            return IntentResult(
+                intent="traffic_lookup",
+                location=location,
+                focus=traffic_focus,
+            )
         if "chinh sach" in folded or "van ban" in folded or "thong bao" in folded:
             return IntentResult(intent="policy_lookup", query=topic or question)
         if "thoi tiet" in folded or "mua" in folded or "nong" in folded or "lanh" in folded:
@@ -211,6 +307,11 @@ class IntentRouter:
             return IntentResult(intent="price_lookup", item_name=item_name)
         if topic:
             return IntentResult(intent="topic_summary", query=topic)
-        if is_hot_news_question(question):
-            return IntentResult(intent="hot_news", query=topic)
+        if looks_like_freeform_news_query(question):
+            return IntentResult(
+                intent="hot_news",
+                query=question,
+                location=location,
+                limit=limit,
+            )
         return IntentResult(intent="unknown", query=question)

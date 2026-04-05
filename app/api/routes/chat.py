@@ -10,4 +10,10 @@ router = APIRouter()
 
 @router.post("/chat/query", response_model=ChatQueryResponse)
 def chat_query(payload: ChatQueryRequest, db: Session = Depends(get_db)) -> ChatQueryResponse:
-    return ChatQueryResponse(**ChatService(db).answer_question(payload.question))
+    return ChatQueryResponse(
+        **ChatService(db).answer_question(
+            payload.question,
+            mode=payload.mode,
+            context_item=payload.context_item.model_dump() if payload.context_item else None,
+        )
+    )

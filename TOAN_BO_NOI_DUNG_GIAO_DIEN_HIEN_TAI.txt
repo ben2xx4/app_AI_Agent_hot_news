@@ -1,0 +1,553 @@
+TOÀN BỘ NỘI DUNG VỀ GIAO DIỆN HIỆN TẠI
+
+1. Mục tiêu của giao diện
+
+Giao diện hiện tại được thiết kế để phục vụ đồng thời 3 nhu cầu:
+- xem nhanh dữ liệu nổi bật trong ngày
+- hỏi đáp bằng AI trên dữ liệu đã ingest
+- tra cứu dữ liệu chi tiết mà không cần SQL
+
+UI vẫn đi theo hướng demo đồ án nhưng đã được tổ chức lại để nhìn giống một sản phẩm hoàn chỉnh hơn, thay vì chỉ là một dashboard kỹ thuật.
+
+Mục tiêu UX chính:
+- người mới vào nhìn là hiểu hệ thống đang làm gì
+- người demo có đường dẫn rõ để kể câu chuyện sản phẩm
+- người kỹ thuật vẫn có khu riêng để soi dữ liệu và runtime
+
+2. Công nghệ giao diện
+
+Giao diện hiện tại dùng:
+- Streamlit
+- FastAPI backend làm nguồn dữ liệu
+- PostgreSQL hoặc SQLite fallback ở backend
+
+Các file UI chính:
+- app/ui/streamlit_app.py
+- app/ui/data_browser.py
+- app/ui/chat_state.py
+- app/ui/experience.py
+- app/ui/navigation.py
+- app/ui/source_health.py
+- app/ui/presentation.py
+- app/ui/runtime.py
+
+3. Cách giao diện lấy dữ liệu
+
+UI hiện không bắn mọi endpoint một cách vô điều kiện như trước.
+
+Hành vi hiện tại:
+- mọi workspace đều đọc /health để biết runtime status
+- chỉ workspace Tổng quan mới fetch các preview dashboard:
+  - /news/hot
+  - /prices/latest
+  - /policies/search
+  - /traffic/latest
+  - /weather/latest theo từng địa điểm
+- Explorer đọc dữ liệu trực tiếp từ database qua lớp helper UI
+- Trợ lý AI gọi POST /chat/query
+- Hệ thống đọc file scheduler status local qua helper source health
+
+UI hiện có cache ngắn hạn cho GET từ Streamlit sang API để giảm burst request khi Streamlit rerender.
+
+4. Cấu trúc điều hướng
+
+Giao diện hiện có sidebar navigation với 4 workspace:
+
+1. Tổng quan
+2. Trợ lý AI
+3. Explorer
+4. Hệ thống
+
+Sidebar còn có:
+- mô tả workspace đang chọn
+- chỉ báo runtime ngắn
+- quick actions
+- quy mô dữ liệu theo nhóm
+
+5. Workspace Tổng quan
+
+Đây là khu dành cho:
+- người xem lần đầu
+- giảng viên hoặc hội đồng
+- người muốn thấy giá trị 5 pipeline thật nhanh
+
+5.1. Hero đầu trang
+
+Hero thể hiện:
+- tên khu làm việc
+- mô tả ngắn hệ thống
+- badge trạng thái cho:
+  - dữ liệu
+  - API
+  - database
+
+Hero không chỉ là phần giới thiệu, mà còn là lớp định vị cho người xem:
+- đây là trung tâm điều phối thông tin hằng ngày
+- dữ liệu đã được ingest trước
+- có AI, có explorer, có hệ thống vận hành
+
+5.2. Bắt đầu nhanh
+
+Khối Bắt đầu nhanh có 3 lối vào:
+- xem tin mới
+- hỏi AI
+- mở Explorer
+
+Mục tiêu:
+- giảm cảm giác bị lạc trong sản phẩm demo
+- cho người xem biết nên bấm gì đầu tiên
+
+Khi bấm:
+- nếu là hướng sang Explorer, UI chuyển sang workspace Explorer và prefill dataset phù hợp
+- nếu là hướng AI, UI điền sẵn câu hỏi mẫu và chuyển sang workspace Trợ lý AI
+
+5.3. Panel AI ngắn trên dashboard
+
+Dashboard có một panel nhỏ để nhấn mạnh rằng AI là trục trải nghiệm trung tâm.
+
+Khối này có:
+- mô tả ngắn
+- vài prompt mẫu
+- nút mở workspace Trợ lý AI
+
+Mục đích:
+- người dùng thấy ngay rằng ngoài xem dữ liệu, họ còn có thể hỏi AI
+
+5.4. Quy mô dữ liệu hiện có
+
+Khối này đọc trực tiếp từ database và hiển thị số lượng bản ghi theo pipeline:
+- tin tức
+- giá cả
+- thời tiết
+- chính sách
+- giao thông
+
+Khối này không phải preview nội dung.
+Nó dùng để trả lời câu hỏi:
+- database hiện có nhiều hay ít
+- dashboard có đang chỉ là preview hay không
+
+Nếu dữ liệu lõi còn mỏng, UI có warning gợi ý chạy refresh_live_data.
+
+5.5. Cụm tab nội dung chính trên dashboard
+
+Dashboard có 3 tab nội dung:
+- Tin tức và điều phối
+- Giá và thời tiết
+- Chính sách và giao thông
+
+Mục tiêu:
+- gom các phần theo logic nghiệp vụ
+- tránh cảm giác có quá nhiều block dồn vào một trang dài
+
+6. Tab Tin tức và điều phối
+
+Tab này có 2 cột chính:
+- Bản tin biên tập
+- Bảng điều phối
+
+6.1. Bản tin biên tập
+
+Đây là cụm tin nổi bật đã được refactor lại theo kiểu editorial.
+
+Cấu trúc hiện tại:
+- 1 tin dẫn lớn
+- 4 tin bổ trợ dạng grid
+
+Tin dẫn có:
+- nhãn Tin dẫn
+- tiêu đề lớn
+- summary
+- nguồn
+- thời điểm
+
+Cụm tin bổ trợ có:
+- nguồn hiển thị gọn
+- tiêu đề
+- summary
+- thời điểm
+
+Điểm mới:
+- không còn render kiểu cột stack kéo dài và lỏng như trước
+- hierarchy thị giác rõ hơn
+- nhìn giống một bản biên tập hơn là danh sách card kỹ thuật
+
+6.2. Bảng điều phối
+
+Khối này tóm tắt:
+- nguồn nổi bật trong feed
+- nhịp dữ liệu
+- lộ trình demo
+
+Mục đích:
+- hỗ trợ người demo kể câu chuyện ngắn
+- cho người xem biết nên đi tiếp sang khu nào
+
+Tên nguồn trong khối này đã được đổi sang nhãn dễ đọc hơn, không còn hiện raw source id kiểu:
+- thanhnien_rss_thoi_su
+- open_meteo_weather_hanoi_live
+
+7. Tab Giá và thời tiết
+
+Tab này có 2 cột:
+- Bảng giá nhanh
+- Thời tiết theo điểm
+
+7.1. Bảng giá nhanh
+
+Hiển thị một số item giá nổi bật như:
+- vàng SJC
+- vàng nhẫn 9999
+- USD
+- xăng RON95-III
+
+Mỗi card có:
+- nguồn
+- tên item
+- giá trị chính
+- đơn vị
+- thời điểm cập nhật
+
+Điểm mới:
+- tiêu đề nguồn đã được rút gọn và dễ đọc hơn
+  - Vietcombank
+  - SJC
+  - Ngân hàng Nhà nước
+  - Petrolimex
+- source title không còn bị tràn khỏi card
+- card được tổ chức lại bằng layout flex để nội dung ổn định hơn
+
+7.2. Thời tiết theo điểm
+
+Hiển thị 6 địa điểm:
+- Hà Nội
+- TP.HCM
+- Đà Nẵng
+- Hải Phòng
+- Cần Thơ
+- Nha Trang
+
+Mỗi card có:
+- nguồn
+- tên địa điểm
+- khoảng nhiệt độ
+- mô tả thời tiết
+- cảnh báo
+
+Điểm mới:
+- nguồn được hiển thị ngắn gọn thành Open-Meteo
+- title card không tràn
+- các card cân hơn khi xếp theo grid
+
+8. Tab Chính sách và giao thông
+
+Tab này có 2 cột:
+- Chính sách mới
+- Giao thông cần chú ý
+
+8.1. Chính sách mới
+
+Hiển thị preview một số văn bản chính sách:
+- tiêu đề
+- nguồn
+- summary
+- cơ quan ban hành hoặc metadata thời gian
+
+Mục đích:
+- cho người xem thấy pipeline policy có dữ liệu thật
+- mở đường sang Explorer hoặc AI để hỏi sâu hơn
+
+8.2. Giao thông cần chú ý
+
+Hiển thị preview sự kiện giao thông:
+- tiêu đề
+- nguồn
+- mô tả
+- địa điểm
+- thời điểm
+
+Mục đích:
+- cho người xem thấy pipeline traffic có giá trị thực tế
+- làm đầu vào cho chat hỏi về cấm đường, tai nạn, ùn tắc
+
+9. CTA dưới từng khối
+
+Sau mỗi cụm dữ liệu chính, UI có CTA thống nhất:
+- xem thêm trong Explorer
+- chuẩn bị câu hỏi AI
+
+Vai trò:
+- biến dashboard thành nơi điều hướng, không chỉ là màn hình xem tĩnh
+
+10. Workspace Trợ lý AI
+
+Đây là khu hội thoại đầy đủ.
+
+Mục tiêu:
+- đưa AI thành trung tâm trải nghiệm
+- thay vì chỉ là một popover nhỏ
+
+10.1. Header của workspace AI
+
+Hiển thị:
+- mô tả ngắn
+- trạng thái Chat
+- trạng thái Retrieval
+- database runtime
+
+Ví dụ:
+- Chat: OpenAI + fallback
+- Retrieval: Bật hoặc Tắt
+- Database: PostgreSQL hoặc SQLite
+
+10.2. Khu conversation chính
+
+Khu này hiển thị:
+- lịch sử hội thoại
+- role label rõ giữa Bạn và Trợ lý
+- timestamp
+- meta như intent, tool, nguồn, updated_at
+
+Tin nhắn assistant mới nhất còn có:
+- follow-up suggestions
+
+10.3. Ô nhập câu hỏi
+
+Người dùng nhập câu hỏi tự nhiên bằng tiếng Việt.
+
+Ví dụ câu hỏi phù hợp:
+- Tin hot hôm nay là gì?
+- Top 5 tin hot
+- Ở TP.HCM có tin hot gì?
+- Giá vàng SJC hôm nay bao nhiêu?
+- Có cảnh báo thời tiết nào không?
+- Có chính sách mới nào về giáo dục không?
+- Có tuyến đường nào đang bị cấm không?
+
+10.4. Gợi ý câu hỏi theo nhóm
+
+Các nhóm hiện có:
+- Tin tức
+- Giá cả
+- Thời tiết và giao thông
+- Chính sách
+
+Mục đích:
+- giúp người chưa biết hỏi gì có thể bắt đầu ngay
+
+10.5. Câu hỏi gần đây
+
+UI ghi nhớ các câu hỏi user vừa dùng để:
+- hỏi lại nhanh
+- tiếp tục một mạch demo
+
+10.6. Xóa hội thoại
+
+Có nút xóa để đưa chat về trạng thái mặc định.
+
+11. Chat nổi góc phải
+
+Ngoài workspace AI, toàn bộ UI vẫn có avatar chat nổi ở góc phải.
+
+Đặc điểm:
+- avatar tròn
+- có bubble gợi ý
+- mở popover chat nhanh
+- dùng chung lịch sử với workspace AI
+
+Mục đích:
+- cho phép hỏi nhanh ở bất kỳ workspace nào
+- giữ cảm giác trợ lý luôn sẵn sàng
+
+Popover chat hiện có:
+- prompt mẫu
+- câu hỏi gần đây
+- lịch sử rút gọn
+- form gửi nhanh
+- nút xóa hội thoại
+- nút mở workspace AI
+
+12. Workspace Explorer
+
+Explorer là nơi tra cứu sâu hơn mà không cần SQL.
+
+12.1. Cấu trúc
+
+Explorer có 2 tab:
+- Dữ liệu nghiệp vụ
+- Bảng kỹ thuật
+
+12.2. Dữ liệu nghiệp vụ
+
+Có thể xem:
+- Tin tức
+- Giá cả
+- Thời tiết
+- Chính sách
+- Giao thông
+
+12.3. Bảng kỹ thuật
+
+Có thể xem:
+- Nguồn dữ liệu
+- Lịch sử crawl
+- Raw documents
+- Retrieval index
+
+12.4. Chức năng chính
+
+Explorer hỗ trợ:
+- chọn dataset
+- tìm kiếm từ khóa
+- lọc theo:
+  - pipeline
+  - source
+  - location
+  - item_name
+- chọn sort:
+  - mới nhất trước
+  - cũ nhất trước
+- chọn số dòng preview
+- tải CSV preview
+
+12.5. Khối thông tin dataset
+
+Trước khi hiển thị bảng dữ liệu, Explorer cho biết:
+- tổng số dòng
+- số dòng khớp bộ lọc
+- số dòng đang hiển thị
+
+Mục đích:
+- giúp người dùng hiểu mình đang nhìn dữ liệu toàn cục hay chỉ preview sau filter
+
+13. Workspace Hệ thống
+
+Đây là khu vận hành, tách riêng khỏi dashboard chính.
+
+13.1. Tình trạng hệ thống
+
+Hiển thị:
+- API local
+- database runtime
+- chat runtime
+- retrieval
+
+13.2. Sức khỏe nguồn dữ liệu
+
+Khối này đọc trực tiếp từ scheduler status local.
+
+Hiển thị:
+- số source ổn định
+- số source đến lịch
+- số source chưa có snapshot
+- số source đang lỗi
+
+Ngoài ra có danh sách source cần chú ý nếu có.
+
+13.3. Quy mô dữ liệu hiện có
+
+Hiển thị lại tổng số bản ghi theo pipeline để người kỹ thuật đối chiếu database nhanh.
+
+13.4. Runbook nhanh
+
+Hiển thị các lệnh local thường dùng như:
+- refresh_live_data.py
+- run_scheduler.py --run-once
+- run_cleanup.py
+
+14. Quick actions ở sidebar
+
+Quick actions cho phép:
+- nhập một cụm ngắn
+- tìm trong Explorer
+- hoặc đẩy thành câu hỏi AI
+
+Ví dụ:
+- giáo dục
+- giá vàng
+- Hải Phòng
+
+Mục đích:
+- giảm số bước
+- hỗ trợ demo nhanh
+
+15. Cách UI phân biệt preview và tra cứu sâu
+
+Tổng quan:
+- là preview
+- không phải toàn bộ dữ liệu database
+
+Explorer:
+- là nơi tra cứu sâu hơn
+- có filter, sort, CSV preview
+
+Hệ thống:
+- là nơi xem runtime và scheduler
+
+AI:
+- là nơi hỏi đáp tự nhiên trên dữ liệu đã ingest
+
+16. Cách người dùng tương tác chính với sản phẩm
+
+Luồng 1:
+- vào Tổng quan
+- xem tin nổi bật, giá, thời tiết, policy, traffic
+- chuyển tiếp sang AI để hỏi sâu hơn
+
+Luồng 2:
+- vào Trợ lý AI
+- hỏi trực tiếp bằng tiếng Việt
+- dùng follow-up để demo tiếp
+
+Luồng 3:
+- vào Explorer
+- chọn dataset
+- lọc dữ liệu
+- export CSV preview
+
+Luồng 4:
+- vào Hệ thống
+- kiểm tra scheduler
+- kiểm tra source health
+- kiểm tra database/runtime
+
+17. Những cải thiện UI quan trọng đã có
+
+- Điều hướng rõ bằng sidebar
+- Dashboard chia tab nội dung thay vì nhồi tất cả vào một màn hình dài
+- Bản tin biên tập có layout editorial rõ hơn
+- Card Giá và Thời tiết đã xử lý overflow của source title
+- Tên nguồn được đổi sang nhãn dễ đọc hơn
+- AI có workspace riêng
+- Explorer thay Data Browser kiểu cũ
+- Hệ thống được tách khỏi dashboard
+- Quick actions giúp thao tác nhanh hơn
+- Chat nổi và workspace AI dùng chung hội thoại
+
+18. Những giới hạn hiện tại của giao diện
+
+- Vẫn là Streamlit nên chưa đạt trải nghiệm SPA như web app React
+- Weather trên dashboard hiện vẫn gọi theo từng địa điểm, chưa có batch endpoint riêng
+- Explorer là công cụ tra cứu/preview tốt, nhưng chưa phải công cụ quản trị dữ liệu đầy đủ
+- Chat nổi vẫn phụ thuộc vào CSS và DOM hiện tại của Streamlit
+- Một số khu kỹ thuật như source health vẫn ưu tiên tính rõ ràng vận hành hơn là tính “marketing”
+
+19. Tóm tắt ngắn
+
+Giao diện hiện tại đã được tổ chức theo 4 workspace rõ ràng:
+- Tổng quan
+- Trợ lý AI
+- Explorer
+- Hệ thống
+
+Nó phục vụ tốt 3 nhu cầu:
+- xem nhanh tình hình dữ liệu nổi bật
+- hỏi đáp bằng AI
+- tra cứu dữ liệu chi tiết
+
+Điểm mạnh hiện tại:
+- dễ demo
+- rõ luồng hơn trước
+- giữ được cả góc nhìn người dùng lẫn góc nhìn kỹ thuật
+
+File này bám theo code UI hiện tại và có thể dùng như tài liệu mô tả giao diện để demo, bàn giao hoặc viết báo cáo.

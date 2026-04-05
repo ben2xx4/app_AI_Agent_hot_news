@@ -19,6 +19,36 @@
       "wind": "Tây Nam 9 km/h",
       "weather_text": "Ngày nắng, chiều tối có thể mưa rào",
       "warning_text": null
+    },
+    {
+      "location": "Hải Phòng",
+      "forecast_time": "2026-04-03T11:00:00",
+      "min_temp": 23,
+      "max_temp": 30,
+      "humidity": 84,
+      "wind": "Đông Nam 14 km/h",
+      "weather_text": "Nhiều mây, chiều tối có mưa rào nhẹ",
+      "warning_text": null
+    },
+    {
+      "location": "Cần Thơ",
+      "forecast_time": "2026-04-03T11:00:00",
+      "min_temp": 26,
+      "max_temp": 34,
+      "humidity": 74,
+      "wind": "Tây Nam 11 km/h",
+      "weather_text": "Ngày nắng, chiều tối có mưa dông cục bộ",
+      "warning_text": "Cảnh báo dông cục bộ vào chiều tối"
+    },
+    {
+      "location": "Nha Trang",
+      "forecast_time": "2026-04-03T11:00:00",
+      "min_temp": 25,
+      "max_temp": 32,
+      "humidity": 78,
+      "wind": "Đông 10 km/h",
+      "weather_text": "Trời nắng, có mây nhẹ về chiều",
+      "warning_text": null
     }
   ]
 }

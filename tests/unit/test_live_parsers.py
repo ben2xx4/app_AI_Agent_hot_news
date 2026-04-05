@@ -150,6 +150,21 @@ def test_parse_open_meteo_payload_smoke() -> None:
     assert records[0].humidity is not None
 
 
+def test_parse_open_meteo_payload_can_use_new_city_name() -> None:
+    source = SourceDefinition(
+        name="open_meteo_weather_cantho_live",
+        pipeline="weather",
+        source_type="json",
+        parser="open_meteo_forecast",
+        extra={"location_name": "Cần Thơ"},
+    )
+
+    records = parse_weather_payload(source, _read_fixture("open_meteo_hanoi.json"))
+
+    assert len(records) == 1
+    assert records[0].location == "Cần Thơ"
+
+
 def test_parse_congbao_listing_smoke() -> None:
     source = SourceDefinition(
         name="congbao_policy_updates_live",

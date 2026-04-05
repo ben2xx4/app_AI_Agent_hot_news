@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.agent.fallback_agent import FallbackAgent
 from app.agent.tool_registry import ToolRegistry
 from app.core.settings import get_settings
 from app.core.text import fold_text
@@ -87,3 +88,45 @@ def test_chat_agent_handles_capabilities_question(seeded_db) -> None:
     assert payload["tool_called"] == "smalltalk"
     assert "toi co the ho tro" in fold_text(payload["answer"])
     assert "\n- " in payload["answer"]
+
+
+def test_fallback_agent_guides_when_policy_result_is_empty(seeded_db, monkeypatch) -> None:
+    with seeded_db() as db:
+        agent = FallbackAgent(db)
+        monkeypatch.setattr(
+            agent.policy_service,
+            "search_policy",
+            lambda query=None: {
+                "items": [],
+                "updated_at": None,
+                "retrieval_used": False,
+                "retrieval_hits": [],
+            },
+        )
+
+        payload = agent.answer("Có văn bản nào về hàng không vũ trụ không?")
+
+    assert payload["intent"] == "policy_lookup"
+    assert "thu hoi" in fold_text(payload["answer"])
+    assert "giao duc" in fold_text(payload["answer"])
+
+
+def test_fallback_agent_guides_when_traffic_result_is_empty(seeded_db, monkeypatch) -> None:
+    with seeded_db() as db:
+        agent = FallbackAgent(db)
+        monkeypatch.setattr(
+            agent.traffic_service,
+            "get_traffic_updates",
+            lambda **_: {
+                "items": [],
+                "updated_at": None,
+                "focus": "blocked_road",
+                "location": None,
+            },
+        )
+
+        payload = agent.answer("Có tuyến đường nào đang bị cấm không?")
+
+    assert payload["intent"] == "traffic_lookup"
+    assert "thu hoi" in fold_text(payload["answer"])
+    assert "cam duong" in fold_text(payload["answer"])

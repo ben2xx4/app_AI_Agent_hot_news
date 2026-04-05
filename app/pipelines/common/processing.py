@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import re
-from datetime import datetime
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from difflib import SequenceMatcher
+from email.utils import parsedate_to_datetime
 
 
 def normalize_whitespace(text: str | None) -> str:
@@ -49,7 +51,42 @@ def parse_datetime(value: str | None) -> datetime | None:
             return datetime.strptime(text, fmt)
         except ValueError:
             continue
-    return None
+    try:
+        return parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError, OverflowError):
+        return None
+
+
+def normalize_datetime_for_compare(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(UTC).replace(tzinfo=None)
+
+
+def resolve_max_age_days(value: int | str | None) -> int | None:
+    if value in {None, ""}:
+        return None
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        return None
+    return days if days > 0 else None
+
+
+def is_datetime_within_age_window(
+    value: datetime | None,
+    max_age_days: int | str | None,
+    *,
+    now_provider: Callable[[], datetime] | None = None,
+) -> bool:
+    resolved_days = resolve_max_age_days(max_age_days)
+    if value is None or resolved_days is None:
+        return True
+    current_time = normalize_datetime_for_compare(
+        now_provider() if now_provider is not None else datetime.now(UTC)
+    )
+    candidate_time = normalize_datetime_for_compare(value)
+    return candidate_time >= current_time - timedelta(days=resolved_days)
 
 
 def similarity_score(left: str | None, right: str | None) -> float:

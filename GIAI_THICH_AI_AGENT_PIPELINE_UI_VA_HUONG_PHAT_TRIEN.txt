@@ -1,0 +1,812 @@
+GIẢI THÍCH HỆ THỐNG HIỆN TẠI
+AI AGENT - PIPELINE - LƯU TRỮ - UI - HƯỚNG PHÁT TRIỂN
+
+Thời điểm tổng hợp: 2026-04-05
+Repo: codex_news_ai_guide-2
+
+==================================================
+1. TỔNG QUAN NGẮN
+==================================================
+
+Hệ thống hiện tại là một nền tảng dữ liệu hằng ngày cho Việt Nam, gồm 5 pipeline:
+
+1. news
+2. price
+3. weather
+4. policy
+5. traffic
+
+Trên lớp dữ liệu này, hệ thống có:
+
+- FastAPI backend
+- Database PostgreSQL, có SQLite fallback
+- Scheduler local để tự chạy pipeline theo lịch
+- Streamlit UI với 4 workspace
+- AI chat tiếng Việt qua /chat/query
+- Retrieval experimental cho news và policy
+
+Kiến trúc tổng quát:
+
+Nguồn ngoài -> fetch/parse -> raw storage -> clean storage trong DB -> service/API -> AI/chat -> UI
+
+
+==================================================
+2. AI AGENT HIỆN TẠI LÀ GÌ
+==================================================
+
+AI agent hiện tại là một agent hỏi đáp bám trên dữ liệu local của hệ thống.
+
+Nó không phải chatbot trả lời tự do hoàn toàn theo web thời gian thực.
+Nó cũng không phải chỉ là một khối tóm tắt văn bản đơn lẻ.
+
+Luồng hiện tại:
+
+1. Người dùng hỏi ở UI hoặc gọi POST /chat/query
+2. Backend đi vào ChatService
+3. ChatService gọi OpenAIAgent
+4. OpenAIAgent có 2 nhánh:
+   - nếu có OpenAI API key và bật chat_use_openai: dùng OpenAI tool calling
+   - nếu không có hoặc lỗi: fallback sang agent nội bộ
+5. Agent nội bộ dùng IntentRouter để xác định intent
+6. Agent gọi service tương ứng:
+   - NewsService
+   - PriceService
+   - WeatherService
+   - PolicyService
+   - TrafficService
+7. Payload trả về được enrich thành câu trả lời + items[] click được
+8. UI render answer, item liên quan, detail, explorer, link nguồn
+
+Điểm quan trọng:
+
+- Agent hiện tại trả lời chủ yếu từ dữ liệu đã ingest vào DB
+- Không đi crawl web mới ngay tại thời điểm hỏi
+- Có thể dùng OpenAI để chọn tool và diễn đạt lại câu trả lời
+- Nếu OpenAI lỗi, agent nội bộ vẫn trả lời được
+
+
+==================================================
+3. AI AGENT HIỆN TẠI KHÁC GÌ AI RESEARCH VÀ AI SUMMARY
+==================================================
+
+3.1. Khác với AI Research
+
+AI research thường có các đặc điểm:
+
+- khi người dùng hỏi mới đi tìm thêm tài liệu
+- tra cứu nhiều nguồn mới trên web
+- đọc nhiều trang rồi tổng hợp
+- thiên về nghiên cứu theo câu hỏi mở
+
+AI agent hiện tại của repo này không vận hành như vậy.
+
+Nó khác ở chỗ:
+
+- nguồn dữ liệu đã được hệ thống crawl trước
+- câu trả lời ưu tiên bám vào DB nội bộ
+- tool gọi vào service/query nội bộ, không phải đi web search live
+- có tính deterministic cao hơn cho demo
+- dễ kiểm soát nguồn, logging, test và quality hơn
+
+Nói ngắn:
+
+- AI research = tìm hiểu ngoài hệ thống lúc hỏi
+- AI agent hiện tại = dùng dữ liệu hệ thống đã chuẩn hóa sẵn
+
+Điểm mạnh của agent hiện tại so với AI research:
+
+- ổn định hơn khi demo
+- ít phụ thuộc internet live
+- dễ test
+- dễ kiểm soát nguồn
+- tránh trả lời dựa trên nguồn ngoài chưa kiểm chứng
+
+Điểm yếu so với AI research:
+
+- nếu DB chưa có dữ liệu mới thì agent không tự đi tìm ngoài web
+- bị giới hạn bởi chất lượng ingest và chất lượng source hiện có
+
+
+3.2. Khác với AI Summary
+
+AI summary chỉ là một chức năng hẹp:
+
+- có một nội dung cụ thể
+- tóm tắt nội dung đó
+
+Trong hệ thống hiện tại, phần gần với AI summary là:
+
+- mode summarize_item
+- hoặc các câu hỏi tóm tắt theo topic/news/policy
+
+Nhưng AI agent hiện tại rộng hơn AI summary vì nó còn:
+
+- hiểu intent
+- chọn đúng nhóm dữ liệu
+- gọi tool phù hợp
+- lọc theo location/top N/topic
+- chuyển từ preview sang detail
+- sinh items[] click được
+- hỗ trợ hỏi tiếp theo ngữ cảnh
+
+Nói ngắn:
+
+- AI summary = chỉ tóm tắt
+- AI agent hiện tại = router + tool caller + formatter + answer builder
+
+
+==================================================
+4. ĐIỂM TỐI ƯU CỦA THIẾT KẾ HIỆN TẠI
+==================================================
+
+4.1. Tối ưu về kiến trúc
+
+- Dữ liệu được ingest trước, nên chat query nhanh hơn so với research live
+- Có fallback nội bộ khi OpenAI lỗi
+- Chia service theo pipeline rõ ràng
+- Có scheduler và source health
+- Có cleanup theo retention
+
+4.2. Tối ưu về demo
+
+- Có demo fixture khi source live lỗi
+- Có Docker full stack
+- Có UI, Explorer và System workspace tách rõ
+- Có clickable items để đi từ answer -> detail -> source
+
+4.3. Tối ưu về kỹ thuật
+
+- Có timeout, retry, logging ở fetch layer
+- Có raw storage để audit dữ liệu gốc
+- Có DB schema rõ cho từng nhóm dữ liệu
+- Có test suite lớn
+- Có retention theo source
+- Có ưu tiên live hơn demo ở nhiều read-path
+
+4.4. Tối ưu về trải nghiệm
+
+- Từ preview card có thể mở detail
+- Từ detail có thể hỏi AI
+- Từ chat trả lời có thể mở nguồn hoặc mở detail nội bộ
+- Explorer cho phép soi sâu mà không cần SQL
+
+
+==================================================
+5. CÓ THỂ TỐI ƯU THÊM BẰNG NHỮNG TOOL NÀO
+==================================================
+
+Phần này là hướng tối ưu thêm trong tương lai, không có nghĩa là repo hiện tại đã dùng hết các tool dưới đây.
+
+5.1. Retrieval và search
+
+- pgvector
+  Dùng vector search ngay trong PostgreSQL để tăng semantic search.
+
+- Qdrant / Weaviate / Milvus
+  Phù hợp nếu muốn tách retrieval ra khỏi DB chính.
+
+- Elasticsearch / OpenSearch / Meilisearch
+  Phù hợp nếu muốn search tốt hơn cho title, summary, filter, aggregation.
+
+- Hybrid retrieval
+  Kết hợp keyword search + dense retrieval + reranker.
+
+- Reranker
+  Ví dụ cross-encoder hoặc BGE reranker để xếp kết quả news/policy tốt hơn.
+
+5.2. Crawl và extraction
+
+- Playwright
+  Hữu ích cho site động hoặc anti-bot mạnh hơn.
+
+- Trafilatura / Readability
+  Hữu ích để tách nội dung bài viết sạch hơn từ HTML detail.
+
+- Newspaper-style extraction
+  Hữu ích khi muốn chuẩn hóa body text.
+
+5.3. NLP và query understanding
+
+- Entity extraction
+  Tách thực thể như địa danh, tổ chức, người, văn bản.
+
+- Topic classifier
+  Phân loại bài thành chính trị, giáo dục, tài chính, giao thông chính xác hơn.
+
+- Query rewriting
+  Viết lại câu hỏi dài thành truy vấn tốt hơn trước khi search.
+
+5.4. Orchestration và vận hành
+
+- Prefect / Airflow
+  Nếu sau này scheduler local không còn đủ.
+
+- Celery / RQ
+  Nếu muốn tách queue xử lý tác vụ nền.
+
+- Prometheus + Grafana + Loki
+  Nếu muốn giám sát và log tốt hơn.
+
+- Great Expectations / Pandera
+  Nếu muốn validation chất lượng dữ liệu mạnh hơn.
+
+
+==================================================
+6. HƯỚNG PHÁT TRIỂN HỢP LÝ
+==================================================
+
+6.1. Hướng ngắn hạn
+
+- Tăng chất lượng ranking của news và traffic
+- Tăng số source live cho news
+- Làm source freshness rõ hơn trên UI
+- Tăng số câu hỏi thực chiến trong test matrix
+
+6.2. Hướng trung hạn
+
+- Hybrid retrieval cho news và policy
+- Entity-based search
+- Timeline/tóm tắt theo sự kiện
+- So sánh nhiều nguồn tốt hơn
+
+6.3. Hướng dài hạn
+
+- Event graph cho tin tức
+- Research mode thật sự, có search ngoài hệ thống khi cần
+- Multi-step planning agent
+- Dashboard vận hành mạnh hơn cho source health, freshness, anomaly
+
+
+==================================================
+7. TOÀN BỘ PIPELINE HIỆN TẠI
+==================================================
+
+7.1. Luồng chung của một pipeline
+
+Mọi pipeline hiện đi theo khung chung:
+
+1. Load source definition từ config/sources.yml
+2. Fetch dữ liệu từ URL hoặc fixture
+3. Ghi raw payload vào raw storage
+4. Parse payload thành records chuẩn
+5. Store records vào DB
+6. Ghi crawl job log
+7. Scheduler đọc trạng thái và chạy lại theo lịch
+
+Luồng triển khai hiện tại nằm ở:
+
+- BasePipeline
+- fetch_source
+- raw storage
+- repositories/service layer
+
+7.2. Pipeline news
+
+Mục tiêu:
+- ingest bài viết tin tức
+- dedup
+- cluster bài tương tự
+- phục vụ hot news, search, compare, topic summary
+
+Nguồn hiện tại:
+
+- VnExpress:
+  - tin mới
+  - thời sự
+  - kinh doanh
+  - thế giới
+  - giáo dục
+
+- Dân Trí:
+  - trang chủ
+  - thế giới
+  - kinh doanh
+  - giáo dục
+  - thể thao
+
+- Thanh Niên:
+  - trang chủ
+  - thời sự
+  - kinh tế
+  - thế giới
+  - giáo dục
+
+- Tuổi Trẻ:
+  - tin mới nhất RSS
+  - có enrich detail HTML
+
+Đặc điểm:
+
+- phần lớn dùng parser rss_basic
+- Tuổi Trẻ có parser detail riêng
+- max_age_days = 30
+- dùng ranking riêng cho hot news
+- có dedup và cluster
+
+Lưu trữ:
+
+- raw: data/raw/news/...
+- clean:
+  - articles
+  - article_clusters
+  - raw_documents
+  - crawl_jobs
+  - sources
+
+7.3. Pipeline price
+
+Mục tiêu:
+- ingest giá vàng, giá xăng, tỷ giá
+- trả về structured lookup và compare
+
+Nguồn hiện tại:
+
+- SJC Gold live
+- Petrolimex fuel live
+- SBV tỷ giá live
+- Vietcombank tỷ giá live
+
+Đặc điểm:
+
+- snapshot structured
+- không phải bài viết
+- lookup nhanh theo item_name
+- compare giá giữa các lần cập nhật
+
+Lưu trữ:
+
+- raw: data/raw/price/...
+- clean:
+  - price_snapshots
+  - raw_documents
+  - crawl_jobs
+  - sources
+
+7.4. Pipeline weather
+
+Mục tiêu:
+- ingest snapshot thời tiết theo điểm
+
+Nguồn hiện tại:
+
+- Open-Meteo:
+  - Hà Nội
+  - TP.HCM
+  - Đà Nẵng
+  - Hải Phòng
+  - Cần Thơ
+  - Nha Trang
+
+Đặc điểm:
+
+- snapshot ngắn hạn
+- lấy nhiệt độ thấp/cao, humidity, wind, weather_text, warning_text
+
+Lưu trữ:
+
+- raw: data/raw/weather/...
+- clean:
+  - weather_snapshots
+  - raw_documents
+  - crawl_jobs
+  - sources
+
+7.5. Pipeline policy
+
+Mục tiêu:
+- ingest văn bản/chính sách
+- phục vụ search theo query/lĩnh vực
+
+Nguồn hiện tại:
+
+- Công báo Chính phủ
+- Thủ tướng Chính phủ
+- Quốc hội
+
+Đặc điểm:
+
+- parser từ listing HTML + detail
+- không cắt ingest theo 30 ngày
+- read-path ưu tiên recent và source live
+
+Lưu trữ:
+
+- raw: data/raw/policy/...
+- clean:
+  - policy_documents
+  - raw_documents
+  - crawl_jobs
+  - sources
+
+7.6. Pipeline traffic
+
+Mục tiêu:
+- ingest sự kiện giao thông và tin giao thông liên quan
+
+Nguồn hiện tại:
+
+- VOV Giao thông
+- VnExpress Giao thông
+
+Đặc điểm:
+
+- listing HTML + detail
+- max_age_days = 14
+- read-path traffic cũng áp retention 14 ngày
+- focus tốt hơn cho:
+  - cấm đường
+  - ùn tắc
+  - tai nạn
+
+Lưu trữ:
+
+- raw: data/raw/traffic/...
+- clean:
+  - traffic_events
+  - raw_documents
+  - crawl_jobs
+  - sources
+
+
+==================================================
+8. LƯU TRỮ HIỆN TẠI
+==================================================
+
+8.1. Raw storage
+
+Mục đích:
+- lưu lại payload gốc để audit, debug parser, kiểm tra source thay đổi
+
+Vị trí:
+- data/raw/
+
+Ví dụ:
+- data/raw/news/...
+- data/raw/policy/...
+
+8.2. Processed storage
+
+Mục đích:
+- lưu file trạng thái phụ trợ cho vận hành cục bộ
+
+Vị trí:
+- data/processed/
+
+Ví dụ:
+- scheduler_status.json
+
+8.3. Database
+
+Mặc định ưu tiên:
+- PostgreSQL
+
+Fallback:
+- SQLite tại data/app.db nếu không kết nối được PostgreSQL
+
+Các bảng chính:
+
+- articles
+- article_clusters
+- price_snapshots
+- weather_snapshots
+- policy_documents
+- traffic_events
+- sources
+- crawl_jobs
+- raw_documents
+- document_embeddings
+
+8.4. Retention và cleanup
+
+Hiện có cleanup policy trung tâm.
+
+Logic hiện tại:
+
+- news: retention ngắn hơn cho read/ingest
+- traffic: retention 14 ngày
+- policy: không cắt ingest theo kiểu news
+- cleanup dùng config trung tâm
+
+
+==================================================
+9. SCHEDULER HIỆN TẠI
+==================================================
+
+Scheduler local chạy các source theo fetch_interval_minutes.
+
+Nhịp tổng quát hiện tại:
+
+- news: khoảng 10 đến 15 phút
+- price: khoảng 15 đến 30 phút
+- weather: 30 phút
+- policy: 120 đến 180 phút
+- traffic: 20 đến 25 phút
+
+Scheduler:
+
+- ghi trạng thái chạy vào scheduler_status.json
+- có health_state
+- có failure_streak
+- có last_duration_seconds
+- có next_run_at
+
+Ý nghĩa:
+
+- nếu source không có bản ghi mới, scheduler vẫn có thể success nhưng total_success = 0
+- điều đó không có nghĩa scheduler chết
+- nó chỉ có nghĩa vòng fetch đó không tạo thêm record mới
+
+
+==================================================
+10. NGƯỜI DÙNG THAO TÁC QUA UI NHƯ THẾ NÀO
+==================================================
+
+UI hiện có 4 workspace:
+
+1. Tổng quan
+2. Trợ lý AI
+3. Explorer
+4. Hệ thống
+
+10.1. Workspace Tổng quan
+
+Mục đích:
+- xem nhanh dữ liệu nổi bật
+- xem KPI
+- xem preview của 5 pipeline
+- đi tiếp sang detail, AI hoặc Explorer
+
+Người dùng hiện thao tác như sau:
+
+1. vào Tổng quan
+2. xem preview của news/price/weather/policy/traffic
+3. bấm Thao tác ▼ ở item/card
+4. chọn:
+   - Xem chi tiết
+   - Tóm tắt bằng AI hoặc Hỏi AI
+   - Mở Explorer
+   - Mở nguồn nếu có URL
+
+10.2. Workspace Trợ lý AI
+
+Mục đích:
+- hỏi bằng tiếng Việt tự nhiên
+- xem lịch sử chat
+- xem item liên quan click được
+
+Luồng:
+
+1. người dùng gõ câu hỏi
+2. hệ thống gọi /chat/query
+3. trả answer + items[]
+4. dưới câu trả lời có Mục liên quan
+5. người dùng bấm Thao tác ▼ trên từng item để:
+   - xem chi tiết
+   - tóm tắt lại
+   - mở nguồn
+
+10.3. Workspace Explorer
+
+Mục đích:
+- tra cứu dữ liệu chi tiết
+- lọc theo dataset/pipeline/source/location/item_name
+- sort
+- export CSV preview
+
+Luồng:
+
+1. chọn dataset
+2. nhập keyword/filter
+3. xem preview
+4. chọn một record
+5. xem detail preview của record đó
+6. bấm Thao tác ▼ để hỏi AI hoặc mở nguồn
+
+10.4. Workspace Hệ thống
+
+Mục đích:
+- xem runtime status
+- xem health của source
+- xem scheduler state
+
+Đây là khu vận hành, không phải khu trải nghiệm người dùng chính.
+
+
+==================================================
+11. CÁCH HỆ THỐNG TÌM CÂU TRẢ LỜI ĐỂ TRẢ LỜI NGƯỜI DÙNG
+==================================================
+
+11.1. Luồng tổng quát
+
+1. Người dùng hỏi
+2. UI gửi request tới /chat/query
+3. ChatService nhận question
+4. Nếu là mode đặc biệt như summarize_item:
+   - build_context_chat_response
+   - trả lời bám trên item đã chọn
+5. Nếu là mode mặc định:
+   - gọi OpenAIAgent.answer(question)
+
+11.2. Nếu OpenAI bật
+
+OpenAIAgent sẽ:
+
+1. gửi system prompt + question sang OpenAI
+2. kèm theo tool definitions:
+   - get_hot_news
+   - search_news
+   - get_latest_price
+   - compare_price
+   - get_weather
+   - search_policy
+   - get_traffic_updates
+3. OpenAI chọn tool
+4. ToolRegistry gọi service nội bộ thật
+5. payload service trả về được đưa lại cho OpenAI
+6. OpenAI sinh answer text
+
+Nghĩa là:
+- OpenAI không tự đọc DB trực tiếp
+- nó gọi tool nội bộ
+
+11.3. Nếu OpenAI tắt hoặc lỗi
+
+FallbackAgent sẽ:
+
+1. dùng IntentRouter để phát hiện intent
+2. dispatch sang service phù hợp
+3. format answer tiếng Việt
+
+Các intent chính:
+
+- hot_news
+- price_lookup
+- price_compare
+- weather_lookup
+- policy_lookup
+- traffic_lookup
+- topic_summary
+- source_compare
+- smalltalk
+- unknown
+
+11.4. Cách news được tìm để trả lời
+
+Nếu câu hỏi là hot news:
+
+- service lấy bài gần đây
+- lọc theo topic hoặc location nếu có
+- xếp hạng bằng news_hotness
+- build payload items
+
+Nếu câu hỏi là query dài kiểu tiêu đề bài báo:
+
+- router vẫn hiểu đây là câu hỏi news
+- query được expand thành các cụm tìm kiếm
+- nếu nhánh hot filter quá rỗng, service fallback sang search nội bộ
+- nhờ vậy các câu kiểu:
+  - Hôm nay 5.4 là Tết Thanh minh 2026, người Việt cần lưu ý gì?
+  có thể ra kết quả liên quan thay vì unknown
+
+11.5. Cách policy được tìm
+
+- search theo query
+- ưu tiên source live hơn demo
+- có recent ranking
+- khi retrieval bật và keyword chưa đủ mạnh, có thể dùng retrieval experimental
+
+11.6. Cách traffic được tìm
+
+- lọc theo location nếu có
+- hiểu focus:
+  - blocked_road
+  - congestion
+  - accident
+- ưu tiên precision hơn recall để tránh kéo bài lệch chủ đề
+
+11.7. Cách answer được đưa về UI
+
+Response hiện không chỉ có plain text.
+
+Ngoài answer, còn có items[] click được.
+
+Mỗi item có thể chứa:
+
+- title
+- kind
+- source
+- url
+- internal_id
+- summary
+- updated_at
+- dataset_title
+- explorer_keyword
+- explorer_filters
+- question_hint
+
+UI dùng items[] để:
+
+- mở detail nội bộ
+- gửi item sang AI để tóm tắt
+- mở Explorer đúng context
+- mở link nguồn nếu có
+
+
+==================================================
+12. AI SUMMARY THEO ITEM ĐANG HOẠT ĐỘNG RA SAO
+==================================================
+
+Khi người dùng đang đứng ở một item và bấm:
+
+- Tóm tắt bằng AI
+- hoặc Hỏi AI về mục này
+
+thì UI gửi:
+
+- question
+- mode
+- context_item
+
+Khi đó:
+
+- ChatService không cần đi qua full routing như câu hỏi tự do
+- build_context_chat_response sẽ dựng câu trả lời bám vào item đó
+- nếu item chỉ có preview thì answer cũng nói rõ đang bám trên preview
+- không bịa thêm nội dung ngoài dữ liệu hệ thống có
+
+Đây là điểm khác biệt quan trọng:
+
+- item summary là AI theo ngữ cảnh item
+- không phải một câu hỏi mới hoàn toàn mù ngữ cảnh
+
+
+==================================================
+13. ĐIỂM MẠNH HIỆN TẠI CỦA TOÀN BÀI TOÁN
+==================================================
+
+- Có dữ liệu thật cho 5 pipeline
+- Có luồng end-to-end hoàn chỉnh
+- Có raw storage + clean DB + API + UI + AI
+- Có scheduler và source health
+- Có Docker stack
+- Có clickable items trong chat
+- Có Explorer không cần SQL
+- Có fallback nội bộ khi OpenAI lỗi
+
+
+==================================================
+14. GIỚI HẠN HIỆN TẠI
+==================================================
+
+- AI hiện chưa phải research agent đúng nghĩa
+- policy và traffic còn phụ thuộc khá mạnh vào source freshness
+- retrieval mới ở mức experimental
+- weather dashboard hiện phải gọi nhiều request đơn lẻ theo location
+- Explorer vẫn là giao diện quản trị nhẹ, chưa phải BI tool hoàn chỉnh
+- UI vẫn là Streamlit nên có giới hạn tương tác sâu kiểu custom web app
+
+
+==================================================
+15. KẾT LUẬN
+==================================================
+
+Hệ thống hiện tại phù hợp nhất với vai trò:
+
+- nền tảng dữ liệu nội bộ
+- hệ thống demo đồ án
+- local demo cho giảng viên/hội đồng
+- base product để phát triển lên data agent thực chiến
+
+AI agent hiện tại mạnh ở chỗ:
+
+- không chỉ tóm tắt
+- không chỉ trả lời tự do
+- mà là lớp điều phối dữ liệu có cấu trúc, có tool, có nguồn, có click-through
+
+Nếu tiếp tục phát triển đúng hướng, hệ thống có thể tiến hóa theo 3 lớp:
+
+1. Data platform mạnh hơn
+2. Search/retrieval mạnh hơn
+3. Research agent mạnh hơn
+
+Trong trạng thái hiện tại, đây là một data-aware AI agent local-first, phù hợp cho demo, test, vận hành và mở rộng tiếp.

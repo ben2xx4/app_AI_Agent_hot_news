@@ -1,0 +1,662 @@
+MÔ TẢ GIAO DIỆN VÀ UI HIỆN TẠI
+
+1. TỔNG QUAN
+
+UI hiện tại của dự án là một ứng dụng Streamlit một trang chính duy nhất.
+
+Giao diện không còn chia mode Demo/Data-Admin như trước.
+
+Mọi thao tác chính đều nằm trong cùng một màn hình:
+- xem dashboard
+- xem trạng thái hệ thống
+- xem sức khỏe nguồn dữ liệu
+- xem preview dữ liệu nghiệp vụ
+- mở Data Browser
+- trò chuyện với trợ lý AI nổi ở góc phải
+
+File chính:
+- app/ui/streamlit_app.py
+
+Các module UI phụ:
+- app/ui/data_browser.py
+- app/ui/experience.py
+- app/ui/chat_state.py
+- app/ui/source_health.py
+
+
+2. CÔNG NGHỆ DÙNG CHO UI
+
+UI dùng:
+- Streamlit để dựng giao diện
+- httpx để gọi API local
+- pandas để dựng bảng dữ liệu preview
+- CSS custom nhúng trực tiếp trong Streamlit để tạo giao diện editorial hơn
+
+Luồng dữ liệu UI:
+- một phần lấy từ FastAPI qua HTTP
+- một phần đọc trực tiếp từ database local thông qua helper Python
+
+API base hiện dùng:
+- lấy từ settings.api_base_url
+
+Tham chiếu:
+- app/ui/streamlit_app.py
+- app/core/settings.py
+
+
+3. PHONG CÁCH GIAO DIỆN
+
+Giao diện hiện tại được thiết kế theo hướng:
+- sáng
+- ấm
+- thiên về màu kem, nâu cam, xanh teal
+- khoảng thở rộng
+- card bo góc lớn
+- có cảm giác dashboard biên tập thay vì bảng kỹ thuật thô
+
+Các điểm nổi bật của style:
+- hero lớn ở đầu trang
+- nền có radial gradient nhẹ
+- card có bóng đổ mềm
+- chip trạng thái và card metric ở phần hero
+- chat launcher dạng avatar tròn nổi
+- bubble chat có phân biệt vai trò Người dùng và Trợ lý
+
+CSS chính nằm trong:
+- hàm render_styles ở app/ui/streamlit_app.py
+
+
+4. CẤU TRÚC MÀN HÌNH CHÍNH
+
+Màn hình hiện tại là một trang duy nhất, theo thứ tự từ trên xuống như sau:
+
+4.1. Hero đầu trang
+
+Mục đích:
+- giới thiệu nhanh đây là phòng điều phối dữ liệu trong ngày
+- hiển thị trạng thái runtime chính
+- hiển thị số lượng bản ghi thật đang có trong database
+
+Nội dung hero:
+- eyebrow có ngày hiện tại
+- tiêu đề lớn
+- mô tả ngắn về mục tiêu của màn hình
+- chip trạng thái:
+  - Database
+  - Retrieval
+  - Chat
+  - API
+- card support bên phải
+- metric tổng quan:
+  - số bài tin tức
+  - số mốc giá
+  - số văn bản chính sách
+  - số sự kiện giao thông
+
+Tham chiếu:
+- render_hero trong app/ui/streamlit_app.py
+- load_core_dataset_overview trong app/ui/data_browser.py
+
+
+4.2. Khối “Bắt đầu nhanh”
+
+Mục đích:
+- cho người dùng mới biết phải bấm gì đầu tiên
+
+Hiện có 3 CTA:
+- Xem tin mới
+- Hỏi AI
+- Mở Data Browser
+
+Ý nghĩa:
+- Xem tin mới: đưa người dùng tới dataset Tin tức trong Data Browser
+- Hỏi AI: điền sẵn câu hỏi mẫu vào chat nổi
+- Mở Data Browser: mở nhanh khối tra cứu dữ liệu ở cuối trang
+
+Tham chiếu:
+- render_quick_start trong app/ui/streamlit_app.py
+- QUICK_START_ACTIONS trong app/ui/experience.py
+
+
+4.3. Hàng trạng thái hệ thống
+
+Mục đích:
+- cho biết app local đang chạy với database nào
+- cho biết chat đang đi theo runtime nào
+- cho biết retrieval có bật không
+
+Hiển thị:
+- API local
+- Database runtime
+- Chat runtime
+- Retrieval
+
+Trạng thái được lấy từ:
+- /health
+
+Tham chiếu:
+- render_system_status trong app/ui/streamlit_app.py
+- app/api/routes/health.py
+
+
+4.4. Hàng “Sức khỏe nguồn dữ liệu”
+
+Mục đích:
+- cho người vận hành biết scheduler/source đang ổn hay có vấn đề
+
+Hiển thị:
+- số source ổn định
+- số source đến lịch
+- số source chưa có snapshot
+- số source lỗi
+- attention sources cần chú ý
+
+Dữ liệu lấy từ:
+- file scheduler_status.json qua helper Python
+
+Tham chiếu:
+- render_source_health trong app/ui/streamlit_app.py
+- app/ui/source_health.py
+- app/services/scheduler_service.py
+
+
+4.5. Khối “Quy mô dữ liệu hiện có”
+
+Mục đích:
+- cho người dùng thấy số lượng bản ghi thật trong database
+- phân biệt rõ dashboard chỉ là preview, không phải toàn bộ dữ liệu
+
+Hiển thị số bản ghi cho:
+- Tin tức
+- Giá cả
+- Thời tiết
+- Chính sách
+- Giao thông
+
+Nếu dữ liệu còn mỏng:
+- có cảnh báo gợi ý chạy scripts/refresh_live_data.py
+
+Tham chiếu:
+- render_data_volume_board trong app/ui/streamlit_app.py
+- build_sparse_data_notice trong app/ui/experience.py
+- load_core_dataset_overview trong app/ui/data_browser.py
+
+
+4.6. Khu “Bản tin biên tập”
+
+Mục đích:
+- hiển thị tin nổi bật và một cụm tin phụ
+
+Bố cục:
+- cột trái: 1 bài spotlight
+- cột phải: danh sách bài phụ
+
+Dữ liệu:
+- gọi API /news/hot?limit=10
+- hiện spotlight + các tin phụ
+
+Ngay dưới khối này có action:
+- Xem thêm trong Tin tức
+- Chuẩn bị câu hỏi AI
+
+Tham chiếu:
+- render_news_board trong app/ui/streamlit_app.py
+- render_section_actions trong app/ui/streamlit_app.py
+- app/api/routes/news.py
+
+
+4.7. Khu “Bảng điều phối”
+
+Mục đích:
+- giải thích các tín hiệu nổi bật đang thấy trên dashboard
+
+Hiển thị:
+- nguồn nổi bật trong cụm tin
+- nhịp dữ liệu hiện tại
+- lộ trình demo gợi ý
+
+Khối này có tính dẫn chuyện khi demo, không phải nơi hiển thị toàn bộ dữ liệu.
+
+Tham chiếu:
+- render_overview_board trong app/ui/streamlit_app.py
+
+
+4.8. Khu “Bảng giá nhanh”
+
+Mục đích:
+- cho thấy các giá trị nổi bật nhất ở pipeline price
+
+Hiện tại ưu tiên các item:
+- gia-vang-sjc
+- gia-vang-nhan-9999
+- ty-gia-usd-ban-ra
+- gia-xang-ron95-iii
+
+Mỗi card hiển thị:
+- nguồn
+- tên hiển thị
+- giá
+- đơn vị
+- thời điểm cập nhật
+
+Ngay dưới khối này có action:
+- Xem thêm trong Giá cả
+- Chuẩn bị câu hỏi AI
+
+Tham chiếu:
+- PRICE_HIGHLIGHT_ORDER trong app/ui/streamlit_app.py
+- render_price_cards trong app/ui/streamlit_app.py
+- app/api/routes/prices.py
+
+
+4.9. Khu “Thời tiết theo điểm”
+
+Mục đích:
+- hiển thị nhanh nhiều địa điểm thời tiết trong cùng màn hình
+
+Địa điểm hiện được load sẵn:
+- Hà Nội
+- TP.HCM
+- Đà Nẵng
+- Hải Phòng
+- Cần Thơ
+- Nha Trang
+
+Mỗi card hiển thị:
+- nguồn
+- địa điểm
+- min/max nhiệt độ
+- mô tả thời tiết
+- cảnh báo nếu có
+
+Ngay dưới khối này có action:
+- Xem thêm trong Thời tiết
+- Chuẩn bị câu hỏi AI
+
+Tham chiếu:
+- WEATHER_LOCATIONS trong app/ui/streamlit_app.py
+- render_weather_cards trong app/ui/streamlit_app.py
+- app/api/routes/weather.py
+
+
+4.10. Khu “Chính sách mới”
+
+Mục đích:
+- preview văn bản/chính sách mới nhất
+
+Mỗi item hiển thị:
+- source
+- title
+- summary
+- issuing agency + issued_at
+
+Ngay dưới khối này có action:
+- Xem thêm trong Chính sách
+- Chuẩn bị câu hỏi AI
+
+Tham chiếu:
+- render_policy_cards trong app/ui/streamlit_app.py
+- app/api/routes/policies.py
+
+
+4.11. Khu “Giao thông cần chú ý”
+
+Mục đích:
+- preview các cập nhật giao thông mới nhất
+
+Mỗi item hiển thị:
+- source
+- title
+- description
+- location + start_time
+
+Ngay dưới khối này có action:
+- Xem thêm trong Giao thông
+- Chuẩn bị câu hỏi AI
+
+Tham chiếu:
+- render_traffic_cards trong app/ui/streamlit_app.py
+- app/api/routes/traffic.py
+
+
+4.12. Khối giới thiệu chat nổi
+
+Mục đích:
+- giải thích cho người dùng biết avatar AI luôn nằm ở góc phải
+
+Nội dung:
+- trợ lý AI nổi
+- bubble nhắc người dùng bấm vào để hỏi trực tiếp
+
+Tham chiếu:
+- render_chat_hint trong app/ui/streamlit_app.py
+
+
+4.13. Khối “Data Browser”
+
+Mục đích:
+- cho phép xem dữ liệu trực tiếp từ database bằng giao diện
+- không cần SQL
+
+Vị trí:
+- nằm ở cuối trang
+- bọc trong expander “Mở Data Browser”
+
+Có thể xem các nhóm:
+- Tin tức
+- Giá cả
+- Thời tiết
+- Chính sách
+- Giao thông
+
+Nếu bật bảng kỹ thuật còn xem được:
+- sources
+- crawl_jobs
+- raw_documents
+- document_embeddings
+
+Tính năng:
+- chọn dataset
+- lọc keyword
+- chọn số dòng
+- lọc theo:
+  - pipeline
+  - source
+  - location
+  - item_name
+- sắp xếp mới nhất/cũ nhất
+- xem bảng
+- tải CSV preview
+
+Tham chiếu:
+- render_data_browser trong app/ui/streamlit_app.py
+- app/ui/data_browser.py
+
+
+5. CHAT AI TRÊN GIAO DIỆN
+
+5.1. Vị trí và cách mở
+
+Chat không chiếm diện tích cố định trên dashboard.
+
+Nó nằm dưới dạng avatar tròn nổi ở góc phải màn hình.
+
+Bên ngoài avatar có bubble nhắc:
+- “Bạn cần tìm kiếm thông tin gì trong ngày, tôi có thể giúp bạn”
+
+Khi bấm vào avatar:
+- mở popover chat
+
+Tham chiếu:
+- phần CSS chat launcher trong render_styles
+- render_chat_assistant trong app/ui/streamlit_app.py
+
+
+5.2. Nội dung bên trong popover chat
+
+Trong khung chat hiện có:
+- tiêu đề “Trợ lý AI”
+- caption giải thích đây là chat local qua API
+- phần intro ngắn
+- gợi ý câu hỏi theo tab
+- danh sách câu hỏi gần đây
+- lịch sử hội thoại
+- nút xóa hội thoại
+- form nhập câu hỏi
+
+Tham chiếu:
+- render_chat_intro
+- render_chat_suggestion_groups
+- render_recent_chat_questions
+- render_chat_messages
+- render_chat_form
+- render_chat_assistant
+
+
+5.3. Các nhóm gợi ý câu hỏi
+
+Nhóm gợi ý hiện có:
+- Tin tức
+- Giá cả
+- Thời tiết và giao thông
+- Chính sách
+
+Ví dụ câu hỏi:
+- Tin hot hôm nay là gì?
+- Giá vàng SJC hôm nay bao nhiêu?
+- Có cảnh báo thời tiết nào không?
+- Có chính sách mới nào về giáo dục không?
+
+Tham chiếu:
+- CHAT_SUGGESTION_GROUPS trong app/ui/experience.py
+
+
+5.4. Lịch sử hội thoại
+
+Chat giữ lịch sử gần đây trong session_state.
+
+Giới hạn hiển thị hiện tại:
+- 10 tin nhắn gần nhất
+
+Mỗi tin nhắn gồm:
+- role
+- content
+- meta
+- timestamp
+- intent nếu có
+- follow_ups nếu có
+
+Tham chiếu:
+- CHAT_HISTORY_LIMIT trong app/ui/streamlit_app.py
+- app/ui/chat_state.py
+
+
+5.5. Trải nghiệm hội thoại hiện tại
+
+Chat hiện đã được cải thiện theo các điểm sau:
+
+- Khi gửi câu hỏi, câu hỏi của người dùng được giữ lại ngay trong lịch sử.
+- Trong lúc chờ, chat hiển thị spinner.
+- Khi có câu trả lời, assistant mới được append vào lịch sử.
+- Tin nhắn có timestamp giờ/phút.
+- Dòng meta hiển thị:
+  - intent
+  - tool
+  - sources
+  - updated_at nếu có
+- Bubble chat được phân vai:
+  - user nền đậm hơn
+  - assistant nền sáng hơn
+- Tin nhắn mới nhất của assistant có gợi ý hỏi tiếp theo intent.
+
+Tham chiếu:
+- process_pending_chat_question trong app/ui/streamlit_app.py
+- render_chat_messages trong app/ui/streamlit_app.py
+- app/ui/chat_state.py
+- get_follow_up_suggestions trong app/ui/experience.py
+
+
+5.6. Follow-up suggestion trong chat
+
+Sau câu trả lời của assistant, UI có thể gợi ý tiếp các câu hỏi liên quan theo intent.
+
+Ví dụ:
+- hot_news
+- price_lookup
+- weather_lookup
+- policy_lookup
+- traffic_lookup
+
+Mục tiêu:
+- giúp người dùng tiếp tục hội thoại dễ hơn
+- không cần tự nghĩ câu hỏi mới từ đầu
+
+Tham chiếu:
+- FOLLOW_UP_SUGGESTIONS trong app/ui/experience.py
+- render_follow_up_buttons trong app/ui/streamlit_app.py
+
+
+5.7. Nút “Xóa hội thoại”
+
+Người dùng có thể reset hội thoại về trạng thái mặc định.
+
+Sau khi reset:
+- chỉ còn tin nhắn mặc định của assistant
+
+Tham chiếu:
+- reset_chat_messages trong app/ui/chat_state.py
+- render_chat_assistant trong app/ui/streamlit_app.py
+
+
+6. CHAT LẤY DỮ LIỆU TỪ ĐÂU
+
+UI chat không tự crawl web khi người dùng đặt câu hỏi.
+
+UI chỉ gọi:
+- POST /chat/query
+
+Backend chat sau đó mới tự chọn intent/tool/runtime tương ứng.
+
+UI chỉ là lớp giao diện và hiển thị hội thoại.
+
+Tham chiếu:
+- post_json trong app/ui/streamlit_app.py
+- app/api/routes/chat.py
+
+
+7. DATA BROWSER LẤY DỮ LIỆU TỪ ĐÂU
+
+Khác với các block preview gọi HTTP API, Data Browser đọc trực tiếp database qua Python helper.
+
+Điều này giúp:
+- xem dữ liệu đầy đủ hơn
+- không cần viết SQL
+- không cần dựng riêng nhiều endpoint chỉ để xem dữ liệu
+
+Dataset hiện được định nghĩa rõ bằng DatasetDefinition.
+
+Tham chiếu:
+- app/ui/data_browser.py
+
+
+8. NGƯỜI DÙNG THAO TÁC TRÊN UI NHƯ THẾ NÀO
+
+Luồng thao tác hiện tại được thiết kế như sau:
+
+Luồng 1:
+- vào trang
+- xem hero và trạng thái hệ thống
+- xem tin nổi bật, giá, thời tiết, chính sách, giao thông
+
+Luồng 2:
+- bấm CTA “Hỏi AI”
+- chat mở sẵn với draft question
+- hỏi tiếp qua popover chat
+
+Luồng 3:
+- kéo xuống Data Browser
+- lọc theo bảng, nguồn, địa điểm, item
+- tải CSV preview nếu cần
+
+Luồng 4:
+- xem sức khỏe scheduler/source để biết dữ liệu có đang cập nhật ổn không
+
+
+9. CÁC ENDPOINT UI ĐANG GỌI
+
+Các block preview hiện gọi:
+- /health
+- /news/hot
+- /prices/latest
+- /policies/search
+- /traffic/latest
+- /weather/latest
+- /chat/query
+
+Tham chiếu:
+- get_json và post_json trong app/ui/streamlit_app.py
+- app/api/routes/*
+
+
+10. PHÂN BIỆT PHẦN NÀO LÀ PREVIEW, PHẦN NÀO LÀ XEM DỮ LIỆU ĐẦY ĐỦ
+
+Preview:
+- Hero metric
+- Bản tin biên tập
+- Bảng giá nhanh
+- Thời tiết theo điểm
+- Chính sách mới
+- Giao thông cần chú ý
+
+Xem dữ liệu đầy đủ hơn:
+- Data Browser
+
+Vận hành:
+- Tình trạng hệ thống
+- Sức khỏe nguồn dữ liệu
+
+Hỏi đáp:
+- Chat nổi
+
+
+11. PHẦN NÀO LÀ DEMO, PHẦN NÀO LÀ LIVE
+
+UI hiện tại là giao diện demo local, nhưng dữ liệu trong UI có thể là:
+- demo
+- hoặc live
+
+Điều này phụ thuộc vào dữ liệu đang có trong database runtime.
+
+Ví dụ:
+- nếu vừa seed demo mà chưa refresh live, UI sẽ hiển thị bộ demo
+- nếu đã chạy refresh_live_data hoặc scheduler live, UI sẽ hiển thị dữ liệu thật mới hơn
+
+Riêng Data Browser luôn phản ánh trực tiếp dữ liệu đang có trong database runtime hiện tại.
+
+Riêng chat:
+- có thể dùng OpenAI path nếu bật
+- nếu OpenAI lỗi hoặc hết quota, UI vẫn nói chuyện qua fallback agent nội bộ
+
+
+12. GIỚI HẠN HIỆN TẠI CỦA UI
+
+- Đây vẫn là UI Streamlit, không phải frontend SPA riêng.
+- Chat popover phụ thuộc DOM của Streamlit nên CSS có thể cần chỉnh nếu nâng version lớn.
+- Dashboard chỉ preview một phần dữ liệu, không phải màn hình show-all.
+- Data Browser đã tiện hơn nhiều nhưng vẫn thiên về người vận hành hơn là người dùng cuối.
+- Chat follow-up hiện dựa trên intent, chưa sinh động hoàn toàn theo nội dung câu trả lời.
+- UI hiện chưa có auto-scroll chủ động tới tin nhắn cuối bằng browser automation riêng.
+
+
+13. FILE THAM CHIẾU CHÍNH CHO UI
+
+- app/ui/streamlit_app.py
+- app/ui/data_browser.py
+- app/ui/experience.py
+- app/ui/chat_state.py
+- app/ui/source_health.py
+- app/api/routes/health.py
+- app/api/routes/news.py
+- app/api/routes/prices.py
+- app/api/routes/weather.py
+- app/api/routes/policies.py
+- app/api/routes/traffic.py
+- app/api/routes/chat.py
+
+
+14. KẾT LUẬN NGẮN
+
+UI hiện tại là một dashboard Streamlit một trang, vừa phục vụ demo, vừa đủ công cụ để soi dữ liệu thật.
+
+Điểm mạnh hiện tại:
+- nhìn nhanh tình trạng hệ thống
+- preview dữ liệu 5 pipeline
+- xem dữ liệu bằng Data Browser không cần SQL
+- có trợ lý AI nổi để hỏi trực tiếp
+- chat đã có gợi ý, câu hỏi gần đây, timestamp, meta và follow-up suggestion
+
+Nói ngắn:
+- dashboard là nơi xem nhanh
+- Data Browser là nơi soi dữ liệu
+- chat nổi là nơi hỏi đáp bằng ngôn ngữ tự nhiên
+

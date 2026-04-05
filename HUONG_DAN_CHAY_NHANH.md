@@ -46,6 +46,9 @@ docker compose up -d postgres
 - Health: `http://127.0.0.1:8000/health`
 - UI: `http://127.0.0.1:8501`
 
+Sau khi UI chạy, nên đọc thêm:
+- `docs/huong-dan-nguoi-dung.md`
+
 ### 9. Xác nhận app đang dùng PostgreSQL
 ```bash
 curl http://127.0.0.1:8000/health
@@ -54,6 +57,45 @@ curl http://127.0.0.1:8000/health
 Kết quả mong muốn:
 ```json
 {"status":"ok","database_driver":"postgresql+psycopg", ...}
+```
+
+## Cách 1B: Chạy full stack Docker nhanh nhất
+Nếu muốn bật luôn `postgres + api + ui + scheduler` bằng Docker:
+
+### 1. Tạo `.env`
+```bash
+cp .env.production.example .env
+```
+
+### 2. Bật stack
+```bash
+docker compose up -d postgres api ui scheduler
+```
+
+### 3. Nạp demo data
+```bash
+docker compose --profile demo run --rm seed_demo
+docker compose --profile ops run --rm refresh_live_data
+```
+
+### 4. Kiểm tra
+```bash
+docker compose ps
+curl http://127.0.0.1:8000/health
+```
+
+Mở:
+- API docs: `http://127.0.0.1:8000/docs`
+- UI: `http://127.0.0.1:8501`
+
+Để biết cách bấm và demo giao diện:
+- `docs/huong-dan-nguoi-dung.md`
+
+Nếu dữ liệu không tự tăng dù `scheduler` đang `Up`:
+```bash
+rm data/processed/scheduler_status.json
+docker compose restart scheduler
+docker compose logs -f scheduler
 ```
 
 ## Cách 2: Chạy cực nhanh bằng SQLite fallback
@@ -106,6 +148,16 @@ Trả về `database_driver=sqlite`.
 .venv/bin/python scripts/run_pipeline.py --pipeline all
 ```
 
+### Nếu vừa seed demo và muốn cập nhật lại giá live
+```bash
+.venv/bin/python scripts/refresh_live_prices.py
+```
+
+### Nếu vừa seed demo và muốn nạp lại toàn bộ dữ liệu live
+```bash
+.venv/bin/python scripts/refresh_live_data.py
+```
+
 ### Chạy scheduler local một vòng
 ```bash
 .venv/bin/python scripts/run_scheduler.py --demo-only --run-once
@@ -114,6 +166,21 @@ Trả về `database_driver=sqlite`.
 ### Xem trạng thái scheduler
 ```bash
 .venv/bin/python scripts/run_scheduler.py --show-status
+```
+
+### Xem trạng thái scheduler trong Docker
+```bash
+docker compose exec scheduler python scripts/run_scheduler.py --show-status
+```
+
+### Làm mới giá live trong Docker
+```bash
+docker compose --profile ops run --rm refresh_live_prices
+```
+
+### Làm mới toàn bộ dữ liệu live trong Docker
+```bash
+docker compose --profile ops run --rm refresh_live_data
 ```
 
 ## Hỏi đáp AI
@@ -152,3 +219,4 @@ Không sao. Hệ thống vẫn trả lời bằng agent nội bộ.
 - [README.md](/Users/lamhung/Downloads/codex_news_ai_guide-2/README.md)
 - [docs/run-local.md](/Users/lamhung/Downloads/codex_news_ai_guide-2/docs/run-local.md)
 - [docs/testing.md](/Users/lamhung/Downloads/codex_news_ai_guide-2/docs/testing.md)
+- [06_deployment/RUNBOOK.md](/Users/lamhung/Downloads/codex_news_ai_guide-2/06_deployment/RUNBOOK.md)

@@ -1,0 +1,779 @@
+GIẢI THÍCH CÁCH HOẠT ĐỘNG CỦA TOÀN BỘ PIPELINE
+
+Tài liệu này mô tả cách hệ thống đang vận hành theo code hiện tại của repo.
+Phạm vi mô tả bám theo các file chính:
+- README.md
+- config/sources.yml
+- app/pipelines/common/*
+- app/pipelines/news|price|weather|policy|traffic/*
+- app/models/entities.py
+- app/services/*
+- app/api/*
+- app/ui/*
+- scripts/*
+
+==================================================
+1. TỔNG QUAN LUỒNG END-TO-END
+==================================================
+
+Luồng tổng thể của hệ thống hiện tại là:
+
+Nguồn dữ liệu -> Load cấu hình source -> Fetch payload -> Lưu raw storage -> Parse ra record chuẩn hóa -> Lưu clean data vào database -> Service/API đọc dữ liệu -> AI chat trả lời -> UI Streamlit hiển thị.
+
+Tham chiếu:
+- README.md
+- app/pipelines/common/base.py
+- scripts/run_pipeline.py
+
+Repo hiện có 5 pipeline ingestion:
+- news
+- price
+- weather
+- policy
+- traffic
+
+Ngoài ingestion, repo còn có:
+- FastAPI backend
+- Streamlit UI
+- AI chat qua POST /chat/query
+- Scheduler local
+- Cleanup dữ liệu cũ theo retention
+- Retrieval experimental cho news và policy
+
+==================================================
+2. CẤU HÌNH NGUỒN DỮ LIỆU
+==================================================
+
+Tất cả source được định nghĩa trong:
+- config/sources.yml
+
+Mỗi source hiện mô tả các trường chính:
+- name: tên source duy nhất
+- pipeline: source thuộc pipeline nào
+- source_type: rss, json, xml, html
+- url: URL để fetch live
+- parser: parser nào sẽ xử lý payload
+- category_default: category mặc định
+- active: có bật source hay không
+- fetch_interval_minutes: tần suất scheduler
+- timeout_seconds
+- retry_count
+- demo_fixture: file fixture nếu có
+- demo_only_source: source chỉ dùng khi chạy --demo-only
+- max_items: số item ingest mỗi lần
+- max_age_days: cửa sổ dữ liệu theo ngày cho source nào cần retention ở ingest
+- các trường extra khác như:
+  - query_params
+  - headers
+  - form_data
+  - location_name
+  - type_map
+  - product_map
+  - field_default
+  - location_keywords
+
+Cấu hình này được load bởi:
+- app/pipelines/common/source_loader.py
+
+source_loader sẽ đọc YAML và chuyển từng item thành SourceDefinition.
+Các trường chuẩn được tách riêng.
+Các trường còn lại được giữ trong source.extra để parser hoặc service dùng tiếp.
+
+==================================================
+3. DATABASE, RAW STORAGE VÀ CÁCH CHỌN DATABASE RUNTIME
+==================================================
+
+Phần database runtime nằm ở:
+- app/db/session.py
+
+Hành vi hiện tại:
+- Nếu DATABASE_URL là SQLite thì dùng luôn SQLite.
+- Nếu DATABASE_URL là PostgreSQL thì hệ thống thử probe kết nối.
+- Nếu probe PostgreSQL thất bại và môi trường không phải production, hệ thống fallback sang SQLite.
+
+SQLite fallback mặc định dùng để local/demo nhanh.
+PostgreSQL dùng khi cần runtime chính.
+
+Schema dữ liệu chính nằm ở:
+- app/models/entities.py
+
+Các bảng chính:
+- sources
+- crawl_jobs
+- raw_documents
+- articles
+- article_clusters
+- price_snapshots
+- weather_snapshots
+- policy_documents
+- traffic_events
+- document_embeddings
+
+Raw storage file nằm trên filesystem, được quản lý bởi:
+- app/pipelines/common/raw_storage.py
+
+Khi fetch thành công, payload raw được ghi theo cấu trúc:
+- data/raw/<pipeline>/<source>/<YYYY>/<MM>/<DD>/<timestamp_hash>.<ext>
+
+Đồng thời metadata raw cũng được ghi vào bảng:
+- raw_documents
+
+==================================================
+4. LUỒNG CHẠY CHUNG CỦA MỘT PIPELINE
+==================================================
+
+Luồng chạy chung nằm ở:
+- app/pipelines/common/base.py
+- scripts/run_pipeline.py
+
+Bước 1: chọn pipeline để chạy
+- scripts/run_pipeline.py nhận:
+  - --pipeline all|news|price|weather|policy|traffic
+  - --demo-only
+  - --source <source_name>
+
+Bước 2: đảm bảo schema local nếu đang dùng SQLite
+- scripts/run_pipeline.py gọi ensure_sqlite_schema()
+
+Bước 3: khởi tạo pipeline tương ứng
+- NewsPipeline
+- PricePipeline
+- WeatherPipeline
+- PolicyPipeline
+- TrafficPipeline
+
+Bước 4: BasePipeline.run() load danh sách source
+- load_sources_for_pipeline(self.pipeline_name)
+- nếu có --source thì lọc theo source name
+
+Bước 5: skip source nếu cần
+- Nếu source có demo_only_source=true mà không chạy --demo-only thì skip
+- Nếu đang chạy --demo-only nhưng source không có demo_fixture thì skip
+
+Bước 6: sync source vào bảng sources
+- SourceRepository.sync_from_definition(...)
+
+Bước 7: tạo crawl job mới
+- JobRepository.start_job(...)
+
+Bước 8: fetch dữ liệu
+- fetch_source() trong app/pipelines/common/fetcher.py
+
+Hành vi fetch_source():
+- nếu không phải demo_only và source có URL thì thử fetch live trước
+- có timeout, retry, logging
+- nếu live lỗi và có demo_fixture, đồng thời settings cho phép fallback thì dùng fixture
+- nếu chạy --demo-only thì đọc fixture luôn
+
+Fetcher hiện dùng:
+- httpx.request(...)
+- có thể gửi GET hoặc POST
+- có thể dùng query params hoặc form_data
+
+Bước 9: lưu raw payload
+- RawStorage.save_text(...) ghi file raw
+- RawDocumentRepository.create(...) ghi metadata vào raw_documents
+
+Bước 10: parse payload
+- mỗi pipeline có hàm parse riêng
+
+Bước 11: store record sạch vào database
+- mỗi pipeline có hàm store riêng
+
+Bước 12: cập nhật crawl job
+- JobRepository.finish_job(...)
+- lưu:
+  - status
+  - total_fetched
+  - total_success
+  - total_failed
+  - error_message
+  - metadata_json như used_demo, total_skipped
+
+Kết quả cuối cùng của mỗi source được trả về dưới dạng PipelineRunSummary.
+
+==================================================
+5. PIPELINE NEWS
+==================================================
+
+File chính:
+- app/pipelines/news/pipeline.py
+- app/pipelines/news/parser.py
+
+Nguồn hiện tại:
+- VnExpress RSS: tin mới, thời sự, kinh doanh
+- Dân Trí RSS: trang chủ, thế giới, kinh doanh
+- Thanh Niên RSS: trang chủ, thời sự, kinh tế
+- Tuổi Trẻ RSS, có enrich detail HTML
+- Demo fixture RSS cho local/demo
+
+Luồng parse:
+- Parser dùng feedparser để đọc RSS
+- Hàm chính:
+  - parse_news_feed(...)
+
+Với RSS cơ bản:
+- lấy title
+- lấy summary/description
+- lấy content nếu có
+- lấy author
+- lấy published_at
+- lấy canonical_url
+- tạo article_hash
+- tạo cluster_key
+
+Với Tuổi Trẻ:
+- parse RSS trước
+- với mỗi bài, fetch thêm HTML detail nếu không phải fixture demo
+- trích:
+  - summary
+  - content_clean
+  - author
+  - published_at
+
+Retention ở ingest:
+- max_age_days=30 cho toàn bộ source news hiện tại
+- parser sẽ bỏ các bài cũ hơn 30 ngày nếu feed còn trả về
+- logic này dùng helper chung:
+  - is_datetime_within_age_window(...)
+  trong app/pipelines/common/processing.py
+
+Store của news:
+- NewsPipeline.store(...)
+
+Các bước store:
+- lấy recent articles 48 giờ gần nhất để dedup nhanh
+- bỏ bài nếu canonical_url đã tồn tại
+- bỏ bài nếu article_hash đã trùng trong recent set
+- so sánh similarity_score(title) để đánh dấu near_duplicate
+- gắn cluster bằng article_clusters
+- ghi vào bảng articles
+
+Điểm đặc biệt:
+- Mỗi article sau khi lưu còn được chia chunk bằng split_into_chunks(...)
+- Tạo sparse vector bằng build_chunk_vectors(...)
+- Ghi vào document_embeddings
+- Đây là index experimental cho retrieval topic_summary
+
+==================================================
+6. PIPELINE PRICE
+==================================================
+
+File chính:
+- app/pipelines/price/pipeline.py
+- app/pipelines/price/parser.py
+
+Nguồn hiện tại:
+- SJC live
+- Petrolimex live
+- SBV live
+- Vietcombank live
+- Các fixture demo cho vàng, xăng, tỷ giá
+
+Parser hiện hỗ trợ:
+- sjc_gold_json
+- petrolimex_fuel_json
+- sbv_fx_html
+- vietcombank_fx_xml
+- và parser JSON demo đơn giản
+
+Luồng parse:
+- SJC:
+  - gọi endpoint JSON
+  - map tên sản phẩm sang item_name chuẩn
+  - lấy buy_price / sell_price
+  - đơn vị VND/lượng
+
+- Petrolimex:
+  - gọi JSON API
+  - lấy giá xăng dầu theo sản phẩm
+  - hiện chọn Vùng 1 làm giá lookup mặc định
+
+- SBV:
+  - parse HTML trang tỷ giá
+  - lấy tỷ giá tham khảo một số ngoại tệ
+  - có thêm central rate item_name riêng
+
+- Vietcombank:
+  - parse XML
+  - lấy Buy / Sell theo currency code
+
+Store của price:
+- PricePipeline.store(...)
+- không dedup theo item
+- mỗi lần crawl sẽ ghi thêm snapshot mới vào price_snapshots
+
+Ý nghĩa:
+- price là dữ liệu time-series snapshot
+- việc chọn bản ghi nào để hiển thị được giải quyết ở service layer
+- service hiện ưu tiên source live hơn demo nếu cùng item_name
+
+==================================================
+7. PIPELINE WEATHER
+==================================================
+
+File chính:
+- app/pipelines/weather/pipeline.py
+- app/pipelines/weather/parser.py
+
+Nguồn hiện tại:
+- Open-Meteo cho:
+  - Hà Nội
+  - TP.HCM
+  - Đà Nẵng
+  - Hải Phòng
+  - Cần Thơ
+  - Nha Trang
+- fixture demo thời tiết
+
+Luồng parse:
+- parser chính:
+  - open_meteo_forecast
+- đọc payload JSON từ Open-Meteo
+- lấy current + daily
+- tạo 1 WeatherRecord cho mỗi source/location
+
+Dữ liệu tạo ra gồm:
+- location
+- forecast_time
+- min_temp
+- max_temp
+- humidity
+- wind
+- weather_text
+- warning_text
+
+weather_text được map từ WMO weather code.
+warning_text được suy ra từ một số code như:
+- dông
+- mưa lớn
+
+Store của weather:
+- WeatherPipeline.store(...)
+- mỗi lần crawl ghi thêm snapshot vào weather_snapshots
+
+==================================================
+8. PIPELINE POLICY
+==================================================
+
+File chính:
+- app/pipelines/policy/pipeline.py
+- app/pipelines/policy/parser.py
+
+Nguồn hiện tại:
+- Công báo Chính phủ
+- Thủ tướng Chính phủ
+- Quốc hội
+- fixture demo policy
+
+Luồng parse live:
+- source parser: congbao_listing_html
+- fetch HTML listing trước
+- duyệt các link văn bản
+- fetch tiếp HTML detail của từng văn bản
+
+Từ trang detail, parser trích:
+- title
+- summary / trích yếu
+- issuing_agency
+- field
+- doc_number
+- issued_at
+- effective_at
+- canonical_url
+
+Nếu field chưa có sẵn:
+- parser đoán field từ title/summary
+
+Store của policy:
+- PolicyPipeline.store(...)
+- bỏ qua nếu canonical_url đã tồn tại
+- ghi vào policy_documents
+
+Điểm đặc biệt:
+- Sau khi lưu, policy cũng được chunk và build sparse vector
+- ghi vào document_embeddings
+- phục vụ semantic fallback cho policy lookup
+
+Lưu ý hiện tại:
+- policy không cắt ingest theo max_age_days
+- thay vào đó service ưu tiên văn bản mới hơn khi search
+- runtime cũng ưu tiên source live hơn demo nếu có cả hai
+
+==================================================
+9. PIPELINE TRAFFIC
+==================================================
+
+File chính:
+- app/pipelines/traffic/pipeline.py
+- app/pipelines/traffic/parser.py
+- app/core/traffic_rules.py
+
+Nguồn hiện tại:
+- VOV Giao thông
+- VnExpress Giao thông
+- fixture demo traffic
+
+Luồng parse live:
+- fetch trang listing
+- lấy danh sách bài
+- fetch HTML detail từng bài
+- trích title, summary, description, start_time, url
+
+Hệ thống hiện có thêm lớp lọc độ liên quan:
+- is_relevant_traffic_content(...)
+
+Mục tiêu:
+- loại các bài lệch chủ đề giao thông
+- giảm việc ingest các bài rộng hoặc không thật sự là event giao thông
+
+Parser còn suy luận:
+- location
+- event_type
+
+event_type hiện chủ yếu phân vào:
+- tai_nan
+- un_tac
+- phan_luong
+- cap_nhat_giao_thong
+
+Retention ở ingest:
+- max_age_days=14 cho source traffic live
+- bài cũ hơn 14 ngày sẽ bị bỏ
+
+Store của traffic:
+- TrafficPipeline.store(...)
+- bỏ qua nếu url đã tồn tại
+- ghi vào traffic_events
+
+Ngoài ingest, read-path traffic cũng áp thêm:
+- cửa sổ 14 ngày
+- ưu tiên live hơn demo
+- focus filter cho blocked road / congestion / accident
+
+==================================================
+10. SERVICE LAYER VÀ CÁCH DỮ LIỆU ĐƯỢC PHỤC VỤ
+==================================================
+
+Service layer nằm ở:
+- app/services/*
+
+Mô hình chung:
+- repository lo truy vấn DB
+- service lo business logic, format payload, ưu tiên live/demo, retrieval, ranking
+
+Ví dụ:
+- NewsService:
+  - get_hot_news
+  - search_news
+  - summarize_topic
+  - compare_sources
+
+- PolicyService:
+  - search_policy
+  - có semantic fallback nếu keyword yếu
+  - ưu tiên live hơn demo
+
+- TrafficService:
+  - get_traffic_updates
+  - có focus blocked_road, congestion, accident
+
+- PriceService:
+  - get_latest_price
+  - compare_price
+  - ưu tiên live hơn demo
+
+- WeatherService:
+  - get_weather
+  - get_warning_summary
+
+==================================================
+11. RETRIEVAL EXPERIMENTAL
+==================================================
+
+Các file chính:
+- app/services/retrieval_service.py
+- app/services/retrieval_index_service.py
+- app/repositories/embedding_repository.py
+
+Hiện tại retrieval hoạt động theo cách local-first:
+- không dùng pgvector
+- dùng sparse vector JSON lưu trong bảng document_embeddings
+
+Index được build ở đâu:
+- news pipeline khi lưu article
+- policy pipeline khi lưu policy document
+- hoặc backfill bằng script:
+  - scripts/build_retrieval_index.py
+
+RetrievalService:
+- search_news_documents(query)
+- search_policy_documents(query)
+
+Cơ chế:
+- build sparse vector cho query
+- lấy toàn bộ chunk embedding cùng doc_type
+- tính cosine score đơn giản
+- lọc theo min_score
+- lấy hit tốt nhất cho mỗi document
+
+Hiện retrieval chỉ nối vào:
+- topic_summary của news
+- policy_lookup ngữ nghĩa khi keyword search chưa đủ tốt
+
+Nếu retrieval tắt hoặc lỗi:
+- hệ thống fallback về flow keyword/search cũ
+
+==================================================
+12. API BACKEND
+==================================================
+
+API nằm ở:
+- app/api/routes/*
+
+Các endpoint chính:
+- /health
+- /news/hot
+- /news/search
+- /prices/latest
+- /prices/compare
+- /weather/latest
+- /policies/search
+- /traffic/latest
+- /chat/query
+
+Vai trò:
+- service layer được gọi qua FastAPI route
+- UI Streamlit và client ngoài đều dùng các endpoint này
+
+/health hiện trả đúng runtime thực tế:
+- database_url
+- database_driver
+
+==================================================
+13. AI CHAT HOẠT ĐỘNG NHƯ THẾ NÀO
+==================================================
+
+Các file chính:
+- app/api/routes/chat.py
+- app/services/chat_service.py
+- app/agent/openai_agent.py
+- app/agent/fallback_agent.py
+- app/agent/intents.py
+
+Luồng hiện tại:
+
+Bước 1:
+- UI hoặc client gọi POST /chat/query
+
+Bước 2:
+- ChatService tạo OpenAIAgent
+
+Bước 3:
+- OpenAIAgent kiểm tra có dùng OpenAI được không
+- điều kiện:
+  - chat_use_openai bật
+  - có openai_api_key
+
+Nếu có OpenAI:
+- agent gọi Responses API
+- có tool definitions từ ToolRegistry
+- model có thể gọi tool
+- tool output được feed lại cho model để tạo câu trả lời cuối
+
+Nếu OpenAI không sẵn sàng hoặc lỗi:
+- fallback sang FallbackAgent
+
+FallbackAgent hoạt động như sau:
+- IntentRouter.detect(question)
+- xác định intent:
+  - smalltalk
+  - hot_news
+  - price_lookup
+  - price_compare
+  - weather_lookup
+  - policy_lookup
+  - traffic_lookup
+  - topic_summary
+  - source_compare
+  - unknown
+
+Sau đó agent gọi service tương ứng.
+Cuối cùng fallback agent format câu trả lời tiếng Việt theo dạng bulleted lines.
+
+==================================================
+14. UI STREAMLIT
+==================================================
+
+UI nằm ở:
+- app/ui/streamlit_app.py
+
+UI không đọc DB trực tiếp cho dashboard chính.
+UI gọi API backend bằng httpx:
+- GET /health
+- GET /news/hot
+- GET /prices/latest
+- GET /weather/latest
+- POST /chat/query
+- các endpoint dữ liệu khác khi cần
+
+Các thành phần hiện tại:
+- Hero đầu trang
+- Tình trạng hệ thống
+- Sức khỏe nguồn dữ liệu
+- Bản tin biên tập
+- Bảng điều phối
+- Bảng giá nhanh
+- Thời tiết theo điểm
+- Chat AI nổi với avatar tròn
+- Tab Data Browser để xem dữ liệu
+
+Data Browser:
+- nằm ở app/ui/data_browser.py
+- cho phép xem các bảng dữ liệu mà không cần SQL
+
+Chat UI:
+- lưu lịch sử trong session_state
+- hiển thị pending state khi đang chờ API
+- hỗ trợ smalltalk và hỏi đáp dữ liệu
+
+==================================================
+15. SCHEDULER LOCAL
+==================================================
+
+Các file chính:
+- app/services/scheduler_service.py
+- scripts/run_scheduler.py
+
+Scheduler hiện là local scheduler đơn giản, chưa phải distributed scheduler.
+
+Cách hoạt động:
+- load toàn bộ source active từ config/sources.yml
+- nếu không chạy demo_only thì tự loại source có demo_only_source=true
+- mỗi source là một job
+- interval của job lấy từ fetch_interval_minutes
+
+Trạng thái job được lưu ở:
+- data/processed/scheduler_status.json
+
+Thông tin theo dõi gồm:
+- last_started_at
+- last_finished_at
+- last_status
+- last_total_fetched
+- last_total_success
+- last_total_failed
+- last_error_message
+- run_count
+- health_state
+- failure_streak
+- last_duration_seconds
+- next_run_at
+
+Scheduler có thể:
+- chạy một vòng bằng --run-once
+- show trạng thái bằng --show-status
+- chạy kèm cleanup bằng --cleanup-after-run
+
+==================================================
+16. CLEANUP DỮ LIỆU CŨ
+==================================================
+
+Các file chính:
+- config/retention.yml
+- app/services/retention_config.py
+- app/services/cleanup_service.py
+- scripts/run_cleanup.py
+
+Retention hiện tại:
+- articles_days: 30
+- traffic_events_days: 14
+- raw_documents_days: 14
+- crawl_jobs_days: 14
+
+CleanupService hiện hỗ trợ:
+- cleanup_articles
+- cleanup_traffic
+- cleanup_raw_documents
+- cleanup_crawl_jobs
+
+Khi cleanup articles:
+- xóa article cũ
+- xóa luôn document_embeddings của article đó
+- xóa article_clusters mồ côi
+
+Khi cleanup raw_documents:
+- xóa cả row trong DB
+- xóa cả file raw trên filesystem nếu file thuộc thư mục được quản lý
+
+Script:
+- dry-run:
+  - .venv/bin/python scripts/run_cleanup.py
+- xóa thật:
+  - .venv/bin/python scripts/run_cleanup.py --apply
+
+==================================================
+17. PHÂN BIỆT DEMO MODE VÀ LIVE MODE
+==================================================
+
+Demo mode:
+- chạy bằng --demo-only
+- chỉ dùng fixture demo
+- phù hợp để demo local nhanh, không phụ thuộc website thật
+
+Live mode:
+- fetch source thật
+- nếu source demo_only_source=true thì source đó bị skip
+- một số source live vẫn có thể fallback sang fixture nếu settings cho phép và website lỗi
+
+Hiện tại hệ thống cố giữ end-to-end luôn chạy được:
+- thiếu live source hoặc source đổi format thì vẫn có thể dùng seed/demo để giữ luồng
+
+==================================================
+18. CÁC SCRIPT QUAN TRỌNG
+==================================================
+
+- scripts/run_pipeline.py
+  Chạy pipeline ingestion theo pipeline hoặc source.
+
+- scripts/seed_demo_data.py
+  Nạp dữ liệu demo cho toàn bộ 5 pipeline.
+
+- scripts/build_retrieval_index.py
+  Backfill retrieval index cho dữ liệu cũ.
+
+- scripts/run_scheduler.py
+  Chạy scheduler local, show status, hoặc chạy kèm cleanup.
+
+- scripts/run_cleanup.py
+  Dọn dữ liệu cũ theo retention.
+
+==================================================
+19. KẾT LUẬN NGẮN
+==================================================
+
+Hệ thống hiện tại không chỉ là 5 parser riêng lẻ.
+Nó đã là một flow đầy đủ gồm:
+- cấu hình source
+- fetch live hoặc fixture
+- raw storage
+- clean storage trong DB
+- retention và cleanup
+- service/API
+- AI agent fallback + OpenAI
+- UI Streamlit
+- scheduler local
+- retrieval experimental cho news và policy
+
+Về mặt vận hành, cách hiểu ngắn gọn nhất là:
+
+1. Source nằm trong config/sources.yml
+2. scripts/run_pipeline.py gọi pipeline tương ứng
+3. BasePipeline fetch -> lưu raw -> parse -> store clean data
+4. Service layer đọc dữ liệu đó để phục vụ API
+5. Chat agent gọi service/tool để trả lời tiếng Việt
+6. Streamlit gọi API để hiển thị dashboard và chat
+7. Scheduler giúp chạy định kỳ
+8. Cleanup giúp giữ dữ liệu gọn theo retention
+
+Hết.

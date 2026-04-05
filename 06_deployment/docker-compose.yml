@@ -1,10 +1,9 @@
-version: "3.9"
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: news_ai_postgres
+    container_name: vn_news_ai_postgres
     environment:
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
       POSTGRES_USER: app_user
       POSTGRES_PASSWORD: app_password
       POSTGRES_DB: news_ai_db
@@ -12,20 +11,117 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d news_ai_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
 
-  minio:
-    image: minio/minio
-    container_name: news_ai_minio
-    command: server /data --console-address ":9001"
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
     ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/data
+      - "8000:8000"
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env
+    environment:
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && python scripts/run_scheduler.py --tick-seconds 60"
+    restart: unless-stopped
+
+  seed_demo:
+    profiles: ["demo"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env
+    environment:
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && python scripts/seed_demo_data.py --demo-only"
+
+  refresh_live_prices:
+    profiles: ["ops"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env
+    environment:
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && python scripts/refresh_live_prices.py"
+
+  refresh_live_data:
+    profiles: ["ops"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    env_file:
+      - ../.env
+    environment:
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && python scripts/refresh_live_data.py"
+
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.ui
+    env_file:
+      - ../.env
+    environment:
+      TIMEZONE: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      TZ: ${TIMEZONE:-Asia/Ho_Chi_Minh}
+      DATABASE_URL: postgresql+psycopg://app_user:app_password@postgres:5432/news_ai_db
+      API_BASE_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "8501:8501"
+    command: streamlit run app/ui/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+    restart: unless-stopped
 
 volumes:
   postgres_data:
-  minio_data:

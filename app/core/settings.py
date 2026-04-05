@@ -39,6 +39,7 @@ class Settings:
     raw_storage_path: Path
     processed_storage_path: Path
     source_config_path: Path
+    retention_config_path: Path
     use_demo_on_failure: bool
     openai_api_key: str | None
     openai_model: str
@@ -62,6 +63,7 @@ def get_settings() -> Settings:
     raw_storage_path = ROOT_DIR / os.getenv("RAW_STORAGE_PATH", "data/raw")
     processed_storage_path = ROOT_DIR / os.getenv("PROCESSED_STORAGE_PATH", "data/processed")
     source_config_path = ROOT_DIR / os.getenv("SOURCE_CONFIG_PATH", "config/sources.yml")
+    retention_config_path = ROOT_DIR / os.getenv("RETENTION_CONFIG_PATH", "config/retention.yml")
 
     return Settings(
         project_name=os.getenv("APP_NAME", "nen-tang-du-lieu-tin-tuc-vn"),
@@ -76,6 +78,7 @@ def get_settings() -> Settings:
         raw_storage_path=raw_storage_path,
         processed_storage_path=processed_storage_path,
         source_config_path=source_config_path,
+        retention_config_path=retention_config_path,
         use_demo_on_failure=_as_bool(os.getenv("USE_DEMO_ON_FAILURE"), True),
         openai_api_key=os.getenv("OPENAI_API_KEY") or None,
         openai_model=os.getenv("OPENAI_MODEL", "gpt-5.4"),

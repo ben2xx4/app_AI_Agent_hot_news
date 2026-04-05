@@ -4,7 +4,15 @@ from __future__ import annotations
 def test_api_endpoints(client) -> None:
     news_response = client.get("/news/hot", params={"limit": 3})
     assert news_response.status_code == 200
-    assert "Hà Nội" in news_response.json()["items"][0]["title"]
+    first_title = news_response.json()["items"][0]["title"].lower()
+    assert not any(
+        phrase in first_title
+        for phrase in ["hạt lanh", "claude monet", "gen z", "cánh rừng gỗ quý"]
+    )
+    assert any(
+        phrase in first_title
+        for phrase in ["hà nội", "tp.hcm", "giá vàng", "mưa dông", "luồng xe"]
+    )
 
     search_response = client.get("/news/search", params={"q": "giao duc"})
     assert search_response.status_code == 200
@@ -21,6 +29,10 @@ def test_api_endpoints(client) -> None:
     weather_response = client.get("/weather/latest", params={"location": "Ha Noi"})
     assert weather_response.status_code == 200
     assert weather_response.json()["location"] == "Hà Nội"
+
+    weather_response_haiphong = client.get("/weather/latest", params={"location": "Hai Phong"})
+    assert weather_response_haiphong.status_code == 200
+    assert weather_response_haiphong.json()["location"] == "Hải Phòng"
 
     policy_response = client.get("/policies/search", params={"query": "giao duc"})
     assert policy_response.status_code == 200
@@ -39,3 +51,4 @@ def test_chat_endpoint(client) -> None:
     body = response.json()
     assert body["answer"]
     assert body["tool_called"] in {"get_hot_news", "search_news"}
+    assert body["items"]

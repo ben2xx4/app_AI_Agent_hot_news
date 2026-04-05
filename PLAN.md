@@ -213,6 +213,20 @@
   - Có ghi rõ giới hạn còn lại
 - Trạng thái: `hoàn thành`
 
+Ghi chú hiện tại:
+- Stack Docker root đã được nâng lên full stack gồm:
+  - `postgres`
+  - `api`
+  - `ui`
+  - `scheduler`
+  - `seed_demo`
+- Đã có thêm:
+  - `.env.production.example`
+  - `06_deployment/RUNBOOK.md`
+  - `06_deployment/DEMO_SCRIPT.md`
+- `api` và `scheduler` tự chạy migration khi khởi động
+- `seed_demo` chạy một lần để reset và nạp lại dữ liệu demo
+
 ## Phase 10A: Parser live cho nguồn thật
 - Mục tiêu:
   - Bổ sung ít nhất 1 nguồn live thật cho mỗi pipeline: news, price, weather, policy, traffic
@@ -310,8 +324,109 @@
   - Tính năng được ghi rõ giới hạn
 - Trạng thái: `hoàn thành ở mức experimental`
 
+## Phase 10E: Retention theo source và recent ranking
+- Mục tiêu:
+  - Tách retention khỏi hardcode parser và đưa về `config/sources.yml`
+  - Giữ `news` trong cửa sổ 30 ngày
+  - Áp cửa sổ recent riêng cho `traffic`
+  - Không cắt ingest `policy`, chỉ ưu tiên recent khi search
+  - Debug read-path để không bị nhiễu bởi source demo hoặc metadata DB cũ
+- File dự kiến tạo/sửa:
+  - `config/sources.yml`
+  - `app/pipelines/common/processing.py`
+  - `app/pipelines/news/parser.py`
+  - `app/pipelines/traffic/parser.py`
+  - `app/repositories/traffic_repository.py`
+  - `app/repositories/policy_repository.py`
+  - `app/services/helpers.py`
+  - `tests/unit/test_retention_processing.py`
+  - `tests/unit/test_traffic_retention.py`
+  - `tests/unit/test_policy_search.py`
+  - `tests/unit/test_source_metadata.py`
+  - `README.md`
+  - `docs/pipelines.md`
+  - `docs/run-local.md`
+  - `docs/testing.md`
+- Cách chạy kiểm tra:
+  - `.venv/bin/ruff check app scripts tests`
+  - `.venv/bin/pytest -q`
+  - `.venv/bin/python scripts/run_pipeline.py --pipeline news`
+  - `.venv/bin/python scripts/run_pipeline.py --pipeline traffic`
+  - `curl http://127.0.0.1:8000/traffic/latest?limit=5`
+- Tiêu chí hoàn thành:
+  - `news` và `traffic` dùng được `max_age_days` theo source
+  - `policy` vẫn tra được văn bản cũ nhưng ưu tiên bản ghi mới hơn
+  - Read-path `traffic` không phụ thuộc metadata cũ trong DB
+  - Có test cho retention helper, source config, policy ranking và traffic filtering
+- Trạng thái: `hoàn thành`
+
+## Phase 10F: Cleanup dữ liệu cũ
+- Mục tiêu:
+  - Tạo cleanup service an toàn cho local
+  - Dọn dữ liệu cũ ở `articles`, `traffic_events`, `raw_documents`, `crawl_jobs`
+  - Giữ mặc định `dry-run`
+  - Có thể nối cleanup vào scheduler nhưng không bật mặc định
+  - Đưa retention cleanup về config trung tâm
+- File dự kiến tạo/sửa:
+  - `app/services/cleanup_service.py`
+  - `app/services/retention_config.py`
+  - `config/retention.yml`
+  - `scripts/run_cleanup.py`
+  - `scripts/run_scheduler.py`
+  - `tests/unit/test_retention_config.py`
+  - `tests/unit/test_cleanup_service.py`
+  - `README.md`
+  - `docs/run-local.md`
+  - `docs/pipelines.md`
+  - `docs/testing.md`
+  - `07_tien_do_va_task/PROGRESS.md`
+- Cách chạy kiểm tra:
+  - `.venv/bin/ruff check app scripts tests`
+  - `.venv/bin/pytest -q`
+  - `.venv/bin/python scripts/run_cleanup.py`
+  - `.venv/bin/python scripts/run_cleanup.py --apply`
+- Tiêu chí hoàn thành:
+  - Có dry-run và apply
+  - Xóa được file raw local an toàn
+  - Có test cho DB row và file cleanup
+  - Có tùy chọn gắn cleanup sau mỗi vòng scheduler
+  - Retention cleanup đọc từ config trung tâm thay vì giữ cố định trong script
+- Trạng thái: `hoàn thành`
+
+## Phase 10G: Hardening chất lượng `policy` và `traffic`
+- Mục tiêu:
+  - Ưu tiên source live hơn demo cho `policy_lookup`
+  - Thêm focus filter cho `traffic_lookup` theo `cấm đường`, `ùn tắc`, `tai nạn`
+  - Giảm hiện tượng trả về bài quá rộng hoặc lẫn demo ở runtime chat/API
+- File dự kiến tạo/sửa:
+  - `app/agent/intents.py`
+  - `app/agent/fallback_agent.py`
+  - `app/core/traffic_rules.py`
+  - `app/services/policy_service.py`
+  - `app/services/traffic_service.py`
+  - `app/repositories/traffic_repository.py`
+  - `tests/unit/test_policy_search.py`
+  - `tests/unit/test_traffic_service.py`
+  - `tests/unit/test_chat_conversations.py`
+  - `README.md`
+  - `docs/run-local.md`
+  - `docs/testing.md`
+  - `07_tien_do_va_task/PROGRESS.md`
+- Cách chạy kiểm tra:
+  - `.venv/bin/ruff check app scripts tests`
+  - `.venv/bin/pytest -q`
+  - `curl -X POST http://127.0.0.1:8000/chat/query -H "Content-Type: application/json" -d '{"question":"Có tuyến đường nào đang bị cấm không?"}'`
+  - `curl -X POST http://127.0.0.1:8000/chat/query -H "Content-Type: application/json" -d '{"question":"Có văn bản nào về học đường không?"}'`
+- Tiêu chí hoàn thành:
+  - `policy_lookup` ưu tiên live hơn demo khi cùng có kết quả phù hợp
+  - `traffic_lookup` hiểu focus và không còn trả bài hạ tầng rộng cho câu `cấm đường`
+  - Có regression test cho policy live-preference và traffic focus
+- Trạng thái: `hoàn thành`
+
 ## TODO còn lại sau bản audit ngày 2026-04-04
+- Với UI demo hiện tại, ưu tiên còn lại là browser automation/screenshot test nếu cần nghiệm thu giao diện nghiêm ngặt hơn.
 - Nâng Phase 10D từ sparse local retrieval sang embedding/RAG thật.
 - Bổ sung đọc toàn văn PDF/OCR cho `policy`.
 - Cân nhắc mở rộng retrieval sang nhiều intent hơn sau khi đủ ổn định.
 - Nâng scheduler local từ demo/local sang mức production nếu cần.
+- Nếu muốn cleanup linh hoạt hơn, mở rộng `config/retention.yml` theo từng pipeline hoặc từng source.
